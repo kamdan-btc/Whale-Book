@@ -7,11 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <style>
-/* Layout: control strip → summary chips → depth ladder (left) + walls / prints (right), stacks on phones */
+/* Layout: coin tabs → controls → summary chips → today chart → alerts → depth ladder + walls / prints */
 :root{
   --bg:#0d1117; --panel:#141b24; --panel2:#1a2330; --line:#263243;
-  --fg:#dbe4ef; --muted:#7f8ea3; --accent:#f2b544;
-  --bid:#2fbf8f; --ask:#e5596b; --bidSoft:rgba(47,191,143,.14); --askSoft:rgba(229,89,107,.14);
+  --fg:#dbe4ef; --muted:#7f8ea3; --accent:#f2b544; --price:#6cb4ff;
+  --bid:#2fbf8f; --ask:#e5596b;
   --whale:#f2b544; --shark:#6cb4ff;
   --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
@@ -22,19 +22,22 @@ html,body{margin:0;background:var(--bg);color:var(--fg)}
 body{font:13px/1.45 var(--mono);padding:14px max(16px,env(safe-area-inset-left)) 40px max(16px,env(safe-area-inset-right))}
 h1{font:700 26px/1 var(--display);letter-spacing:.02em;margin:0}
 h1 span{color:var(--accent)}
-h2{font:600 15px/1 var(--display);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px}
-.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:14px}
+h2{font:600 15px/1.2 var(--display);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-bottom:12px}
 .stamp{color:var(--muted);font-size:12px}
 button,select,input{font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
 button{cursor:pointer}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 #refresh{background:var(--accent);color:#1b1305;border-color:var(--accent);font-weight:600;padding:8px 16px}
 #refresh[disabled]{opacity:.6;cursor:wait}
+.coins{display:flex;gap:6px}
+.coins button{font:600 16px/1 var(--display);letter-spacing:.04em;padding:8px 16px;color:var(--muted)}
+.coins button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 .controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.controls input[type=number]{width:84px}
+.controls input[type=number]{width:96px}
 .venues{display:flex;flex-wrap:wrap;gap:6px}
-.venue{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);text-transform:none;letter-spacing:0;color:var(--fg)}
+.controls label.venue{display:flex;flex-direction:row;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);text-transform:none;letter-spacing:0;color:var(--fg)}
 .venue i{width:9px;height:9px;border-radius:50%;display:inline-block}
 .venue em{font-style:normal;font-size:10px;color:var(--muted)}
 .venue.err em{color:var(--ask)} .venue.ok em{color:var(--bid)}
@@ -46,13 +49,25 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
 @media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+.block{margin-bottom:14px}
 .stack{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* today */
+.today{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.today .stat small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.today .stat b{display:block;font:600 22px/1.15 var(--display);font-variant-numeric:tabular-nums}
+.today .stat span{display:block;color:var(--muted);font-size:11px}
+.today .stat.wide{grid-column:1/-1}
+.readout{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;min-height:20px;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.readout b{font-weight:600}
+.readout .t{color:var(--muted)}
+.chartwrap{width:100%;position:relative;touch-action:pan-y}
+#cvd{width:100%;height:300px;display:block}
 /* ladder */
 .ladder{max-height:78vh;overflow:auto;font-variant-numeric:tabular-nums}
-.row{display:grid;grid-template-columns:78px minmax(0,1fr) 62px 22px;gap:8px;align-items:center;padding:1px 0;font-size:12px}
+.row{display:grid;grid-template-columns:84px minmax(0,1fr) 70px 22px;gap:8px;align-items:center;padding:1px 0;font-size:12px}
 .row .px{text-align:right;color:var(--muted)}
 .row.bid .px{color:var(--bid)} .row.ask .px{color:var(--ask)}
-.bar{height:13px;display:flex;border-radius:2px;overflow:hidden;background:transparent}
+.bar{height:13px;display:flex;border-radius:2px;overflow:hidden}
 .bar span{height:100%}
 .row .qty{text-align:right}
 .row .tag{font-size:11px;text-align:center}
@@ -76,32 +91,27 @@ td.r,th.r{text-align:right}
 .note{color:var(--muted);font-size:12px;line-height:1.55;max-width:70ch}
 .note b{color:var(--fg);font-weight:500}
 .empty{color:var(--muted);padding:12px 0}
-.controls label.venue{flex-direction:row;text-transform:none;letter-spacing:0;font-size:12px;color:var(--fg)}
-.block{margin-bottom:14px}
-.today{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:10px}
-.today .stat small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
-.today .stat b{display:block;font:600 22px/1.15 var(--display);font-variant-numeric:tabular-nums}
-.today .stat span{display:block;color:var(--muted);font-size:11px}
-.cvdwrap{width:100%}
-#cvd{width:100%;height:160px;display:block}
+.err{color:var(--ask)}
+/* alerts */
 .alertTop{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 #alertToggle.on{background:var(--bid);border-color:var(--bid);color:#06140e;font-weight:600}
-.alertSet{display:flex;flex-wrap:wrap;gap:10px 14px}
+.alertSet{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:6px}
 .alertSet label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.alertSet input{width:90px}
+.alertSet input[type=number]{width:96px}
+.watch{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;font-size:12px;color:var(--muted)}
+.watch label{display:flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);color:var(--fg)}
 .alertList{max-height:320px;overflow:auto;border-top:1px solid var(--line)}
 .alert{padding:8px 0;border-bottom:1px solid rgba(38,50,67,.6)}
 .alert b{display:block;font-weight:600}
 .alert span{color:var(--muted);font-size:12px}
 .alert.buy b{color:var(--bid)} .alert.sell b{color:var(--ask)} .alert.wall b{color:var(--whale)}
-.err{color:var(--ask)}
-@media (prefers-reduced-motion:no-preference){.flash{animation:fl .8s ease-out}@keyframes fl{from{background:rgba(242,181,68,.25)}to{background:transparent}}}
 </style>
 </head>
 <body>
 
 <div class="top">
-  <h1>BTC <span>Whale Book</span></h1>
+  <h1><span id="coinTitle">BTC</span> Whale Book</h1>
+  <div class="coins" id="coins" role="group" aria-label="Coin"></div>
   <button id="refresh" type="button">Refresh</button>
   <label class="stamp" for="auto">Auto
     <select id="auto">
@@ -112,15 +122,13 @@ td.r,th.r{text-align:right}
 </div>
 
 <div class="controls">
-  <label for="bin">Price bin ($)
-    <select id="bin"><option>25</option><option>50</option><option selected>100</option><option>250</option><option>500</option></select>
-  </label>
+  <label for="bin">Price bin ($)<select id="bin"></select></label>
   <label for="range">Range from mid
     <select id="range"><option value="0.5">±0.5%</option><option value="1">±1%</option><option value="2" selected>±2%</option><option value="3">±3%</option><option value="5">±5%</option></select>
   </label>
-  <label for="shark">Shark ≥ BTC<input id="shark" type="number" min="1" step="1" value="10"></label>
-  <label for="whale">Whale ≥ BTC<input id="whale" type="number" min="1" step="1" value="50"></label>
-  <label for="print">Big print ≥ BTC<input id="print" type="number" min="0.1" step="0.5" value="2"></label>
+  <label for="shark"><span class="u">Shark ≥ BTC</span><input id="shark" type="number" min="0" step="any"></label>
+  <label for="whale"><span class="u">Whale ≥ BTC</span><input id="whale" type="number" min="0" step="any"></label>
+  <label for="print"><span class="u">Big print ≥ BTC</span><input id="print" type="number" min="0" step="any"></label>
   <div>
     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Venues</div>
     <div class="venues" id="venues"></div>
@@ -130,10 +138,16 @@ td.r,th.r{text-align:right}
 <div class="chips" id="chips"></div>
 
 <div class="card block" id="todayCard">
-  <h2>Today's market orders · Binance spot + perp</h2>
+  <h2 id="todayTitle">Today's market orders · Binance spot + perp</h2>
   <div class="today" id="today"><div class="empty">Loading today's buying and selling…</div></div>
-  <div class="cvdwrap"><canvas id="cvd" height="160" aria-label="Running net buying since midnight"></canvas></div>
-  <div class="legend" style="margin-top:6px"><span><i style="background:var(--accent)"></i>Net bought since midnight (BTC)</span><span><i style="background:var(--muted)"></i>Price</span></div>
+  <div class="readout" id="readout"></div>
+  <div class="chartwrap"><canvas id="cvd" aria-label="Price and net buying since midnight, with net buying per hour"></canvas></div>
+  <div class="legend" style="margin-top:8px">
+    <span><i style="background:var(--price)"></i>Price (left scale)</span>
+    <span><i style="background:var(--accent)"></i>Net bought since midnight (right scale)</span>
+    <span><i style="background:var(--bid)"></i><i style="background:var(--ask)"></i>Net per hour</span>
+  </div>
+  <p class="note" style="margin:4px 0 0">Touch or hover the chart to read any moment of the day.</p>
 </div>
 
 <div class="card block" id="alertsCard" hidden>
@@ -142,15 +156,16 @@ td.r,th.r{text-align:right}
     <button type="button" id="alertToggle">Turn alerts on</button>
     <span id="alertState" class="stamp">Off</span>
   </div>
+  <div class="watch" id="watch"><span>Alert me for:</span></div>
   <div class="alertSet">
-    <label for="exec">Big execution ≥ BTC<input id="exec" type="number" min="1" step="1" value="25"></label>
+    <label for="exec"><span class="u">Big execution ≥ BTC</span><input id="exec" type="number" min="0" step="any"></label>
+    <label for="minNet"><span class="u">Min 5-min net BTC</span><input id="minNet" type="number" min="0" step="any"></label>
     <label for="accel">Pace alert at ×<input id="accel" type="number" min="1.5" step="0.5" value="3"></label>
-    <label for="minNet">Min 5-min net BTC<input id="minNet" type="number" min="10" step="10" value="100"></label>
     <label for="interval">Check every
       <select id="interval"><option value="30">30s</option><option value="60" selected>60s</option><option value="120">2 min</option></select>
     </label>
   </div>
-  <p class="note" style="margin:8px 0">Wall alerts use your Whale size and Range above. A new wall must stay for two checks before it alerts, which filters out most flicker.</p>
+  <p class="note" style="margin:6px 0 10px">The size boxes apply to the coin selected at the top. Wall alerts use that coin's Whale size and the Range above. A new wall must stay for two checks before it alerts.</p>
   <div class="alertTop">
     <button type="button" id="battBtn">Allow running in background</button>
     <button type="button" id="appSetBtn">App settings</button>
@@ -163,7 +178,7 @@ td.r,th.r{text-align:right}
   <div class="card">
     <h2>Depth ladder · all venues</h2>
     <div class="legend" id="legend"></div>
-    <div class="ladder" id="ladder"><div class="empty">Press Refresh to load the order books.</div></div>
+    <div class="ladder" id="ladder"><div class="empty">Loading the order books…</div></div>
   </div>
   <div class="stack">
     <div class="card">
@@ -186,11 +201,20 @@ td.r,th.r{text-align:right}
   </div>
 </div>
 
-<p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in BTC. Perp books (Binance futures, Bybit linear) are where most leverage sits. <span class="sticky">● Seen ×N</span> means the wall has stayed within 0.05% of the same price for N consecutive refreshes; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API in your browser; a venue shows "blocked" if your network or region refuses it.</p>
+<p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance futures, Bybit linear) are where most leverage sits. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
 
 <script>
 (function(){
 "use strict";
+// ---------- coins ----------
+const COINS = {
+  BTC:{bn:"BTCUSDT", cb:"BTC-USD", kr:"XBTUSD", okx:"BTC-USDT", by:"BTCUSDT",
+       bins:[25,50,100,250,500], bin:100, shark:10, whale:50, print:2, exec:25, minNet:100},
+  ETH:{bn:"ETHUSDT", cb:"ETH-USD", kr:"ETHUSD", okx:"ETH-USDT", by:"ETHUSDT",
+       bins:[1,2,5,10,25], bin:2, shark:300, whale:1500, print:50, exec:800, minNet:3000},
+  SOL:{bn:"SOLUSDT", cb:"SOL-USD", kr:"SOLUSD", okx:"SOL-USDT", by:"SOLUSDT",
+       bins:[0.05,0.1,0.25,0.5,1], bin:0.1, shark:8000, whale:40000, print:1000, exec:20000, minNet:80000}
+};
 const VENUES = [
   {id:"binance",  name:"Binance spot",  color:"#f0b90b"},
   {id:"binancef", name:"Binance perp",  color:"#c98b1d"},
@@ -202,22 +226,80 @@ const VENUES = [
 const VCOL = Object.fromEntries(VENUES.map(v=>[v.id,v.color]));
 const VNAME = Object.fromEntries(VENUES.map(v=>[v.id,v.name]));
 const $ = id=>document.getElementById(id);
+const NATIVE = typeof window.Android !== "undefined";
 
-// ---------- settings (remembered per browser) ----------
-const SKEY="btcWhaleBook.v1";
-function loadSettings(){ try{ return JSON.parse(localStorage.getItem(SKEY))||{}; }catch(e){ return {}; } }
-function saveSettings(){ try{ localStorage.setItem(SKEY, JSON.stringify(settings())); }catch(e){} }
-const saved = loadSettings();
-["bin","range","shark","whale","print","auto"].forEach(k=>{ if(saved[k]!=null && $(k)) $(k).value = saved[k]; });
-const enabled = new Set(saved.venues || VENUES.map(v=>v.id));
+// ---------- settings (remembered on this device) ----------
+const SKEY="btcWhaleBook.v2";
+let store = {};
+try{ store = JSON.parse(localStorage.getItem(SKEY)) || {}; }catch(e){ store = {}; }
+if(!store.per) store.per = {};
+// carry over thresholds from the first version
+try{ const old = JSON.parse(localStorage.getItem("btcWhaleBook.v1")); if(old && !store.per.BTC) store.per.BTC = {bin:old.bin, shark:old.shark, whale:old.whale, print:old.print, venues:old.venues}; if(old && store.range==null) store.range = old.range*100; if(old && store.auto==null) store.auto = old.auto; }catch(e){}
+let coin = COINS[store.coin] ? store.coin : "BTC";
+function per(c){
+  const d = COINS[c], p = store.per[c] = store.per[c] || {};
+  for(const k of ["bin","shark","whale","print","exec","minNet"]) if(p[k]==null || isNaN(p[k])) p[k] = d[k];
+  if(!Array.isArray(p.venues)) p.venues = VENUES.map(v=>v.id);
+  if(p.on==null) p.on = (c==="BTC");
+  return p;
+}
+["BTC","ETH","SOL"].forEach(per);
+// alert settings live in the app; read them back so both stay in step
+if(NATIVE){
+  try{
+    const ns = JSON.parse(Android.getSettings()||"{}");
+    if(ns.coins){ for(const c in ns.coins){ if(!COINS[c]) continue; const p=per(c), n=ns.coins[c]; ["exec","minNet","whale"].forEach(k=>{ if(n[k]!=null) p[k]=+n[k]; }); if(n.on!=null) p.on=!!n.on; } }
+    else if(ns.exec!=null){ const p=per("BTC"); p.exec=+ns.exec; if(ns.minNet!=null) p.minNet=+ns.minNet; p.on=true; }
+    if(ns.accel!=null) store.accel = +ns.accel;
+    if(ns.interval!=null) store.interval = +ns.interval;
+  }catch(e){}
+}
+function save(){ try{ localStorage.setItem(SKEY, JSON.stringify(store)); }catch(e){} }
+let enabled = new Set(per(coin).venues);
 
 function settings(){
-  return {
-    bin:+$("bin").value, range:+$("range").value/100,
-    shark:+$("shark").value||10, whale:+$("whale").value||50, print:+$("print").value||2,
-    auto:+$("auto").value, venues:[...enabled]
-  };
+  const p = per(coin);
+  return { bin:p.bin, range:(+$("range").value||2)/100, shark:p.shark, whale:p.whale, print:p.print };
 }
+
+// ---------- formatting ----------
+function decimalsFor(v){ const s=String(v); return s.includes(".") ? s.split(".")[1].length : 0; }
+function pxDp(p){ return p>=1000?0:p>=10?2:4; }
+const fmtP = p=>p.toLocaleString("en-GB",{minimumFractionDigits:p>=1000?0:2,maximumFractionDigits:pxDp(p)});
+const fmtQ = q=>{ const a=Math.abs(q); return a>=100?Math.round(q).toLocaleString("en-GB"):a>=10?q.toFixed(1):q.toFixed(2); };
+const fmtBig = q=>{ const a=Math.abs(q); return a>=1e6?(q/1e6).toFixed(2)+"M":a>=1e5?(q/1e3).toFixed(0)+"k":fmtQ(q); };
+const fmtK = q=>{ const a=Math.abs(q); return a>=1e6?(q/1e6).toFixed(1)+"M":a>=1e4?(q/1e3).toFixed(0)+"k":a>=1e3?(q/1e3).toFixed(1)+"k":a>=10?q.toFixed(0):q.toFixed(1); };
+const fmtUSD = v=>v>=1e9?"$"+(v/1e9).toFixed(2)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":"$"+(v/1e3).toFixed(0)+"k";
+const pct = x=>(x>=0?"+":"")+(x*100).toFixed(2)+"%";
+const signed = (v,f)=> (v>=0?"+":"−")+f(Math.abs(v));
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hhmm = t=>new Date(t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+function tier(q,s){ return q>=s.whale?"whale":q>=s.shark?"shark":""; }
+
+// ---------- coin + controls ----------
+function renderCoins(){
+  $("coins").innerHTML = "";
+  Object.keys(COINS).forEach(c=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=c; b.setAttribute("aria-pressed", c===coin?"true":"false");
+    b.addEventListener("click",()=>{ if(c!==coin) switchCoin(c); });
+    $("coins").append(b);
+  });
+  $("coinTitle").textContent = coin;
+  document.querySelectorAll(".u").forEach(el=>{ el.textContent = el.textContent.replace(/(BTC|ETH|SOL)$/, coin); });
+  $("todayTitle").textContent = "Today's "+coin+" market orders · Binance spot + perp";
+}
+function fillControls(){
+  const p = per(coin);
+  $("bin").innerHTML = COINS[coin].bins.map(b=>`<option value="${b}">${b}</option>`).join("");
+  if(!COINS[coin].bins.includes(+p.bin)) p.bin = COINS[coin].bin;
+  $("bin").value = String(p.bin);
+  $("shark").value = p.shark; $("whale").value = p.whale; $("print").value = p.print;
+  $("exec").value = p.exec; $("minNet").value = p.minNet;
+}
+if(store.range!=null) $("range").value = String(store.range);
+if(store.auto!=null) $("auto").value = String(store.auto);
+if(store.accel!=null) $("accel").value = store.accel;
+if(store.interval!=null) $("interval").value = String(store.interval);
 
 // venue toggles
 const status = {};
@@ -227,14 +309,14 @@ function renderVenues(){
     const lab = document.createElement("label");
     lab.className = "venue" + (status[v.id]==="ok"?" ok":status[v.id]?" err":"");
     const cb = document.createElement("input"); cb.type="checkbox"; cb.id="v_"+v.id; cb.checked=enabled.has(v.id);
-    cb.addEventListener("change",()=>{ cb.checked?enabled.add(v.id):enabled.delete(v.id); saveSettings(); render(); });
+    cb.addEventListener("change",()=>{ cb.checked?enabled.add(v.id):enabled.delete(v.id); per(coin).venues=[...enabled]; save(); render(); });
     const dot=document.createElement("i"); dot.style.background=v.color;
     const t=document.createElement("span"); t.textContent=v.name;
     const st=document.createElement("em"); st.textContent = status[v.id]==="ok"?"live":status[v.id]?"blocked":"";
     lab.append(cb,dot,t,st); $("venues").append(lab);
   });
   $("legend").innerHTML = VENUES.filter(v=>enabled.has(v.id)).map(v=>`<span><i style="background:${v.color}"></i>${v.name}</span>`).join("")
-    + `<span><i style="background:var(--whale)"></i>🐋 whale bin</span><span><i style="background:var(--shark)"></i>🦈 shark bin</span>`;
+    + `<span>🐋 whale bin</span><span>🦈 shark bin</span>`;
 }
 
 // ---------- fetching ----------
@@ -244,46 +326,65 @@ async function getJSON(url, ms=9000){
   finally{ clearTimeout(t); }
 }
 const num = a=>a.map(x=>[+x[0],+x[1]]);
-const BOOKS = {
-  binance: async()=>{ const d=await getJSON("https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5000"); return {bids:num(d.bids),asks:num(d.asks)}; },
-  binancef:async()=>{ const d=await getJSON("https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000"); return {bids:num(d.bids),asks:num(d.asks)}; },
-  coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/BTC-USD/book?level=2"); return {bids:num(d.bids),asks:num(d.asks)}; },
-  kraken:  async()=>{ const d=await getJSON("https://api.kraken.com/0/public/Depth?pair=XBTUSD&count=500"); if(d.error&&d.error.length) throw new Error(d.error[0]); const b=Object.values(d.result)[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
-  okx:     async()=>{ const d=await getJSON("https://www.okx.com/api/v5/market/books?instId=BTC-USDT&sz=400"); const b=d.data[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
-  bybit:   async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/orderbook?category=linear&symbol=BTCUSDT&limit=500"); return {bids:num(d.result.b),asks:num(d.result.a)}; }
-};
-const TRADES = {
-  binance: async()=>{ const d=await getJSON("https://api.binance.com/api/v3/aggTrades?symbol=BTCUSDT&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
-  binancef:async()=>{ const d=await getJSON("https://fapi.binance.com/fapi/v1/aggTrades?symbol=BTCUSDT&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
-  // Coinbase "side" is the maker side, so the aggressor is the opposite
-  coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/BTC-USD/trades?limit=1000"); return d.map(t=>({p:+t.price,q:+t.size,side:t.side==="buy"?"sell":"buy",t:Date.parse(t.time)})); }
-};
+function bookFetchers(c){
+  const C = COINS[c];
+  return {
+    binance: async()=>{ const d=await getJSON("https://api.binance.com/api/v3/depth?symbol="+C.bn+"&limit=5000"); return {bids:num(d.bids),asks:num(d.asks)}; },
+    binancef:async()=>{ const d=await getJSON("https://fapi.binance.com/fapi/v1/depth?symbol="+C.bn+"&limit=1000"); return {bids:num(d.bids),asks:num(d.asks)}; },
+    coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/"+C.cb+"/book?level=2"); return {bids:num(d.bids),asks:num(d.asks)}; },
+    kraken:  async()=>{ const d=await getJSON("https://api.kraken.com/0/public/Depth?pair="+C.kr+"&count=500"); if(d.error&&d.error.length) throw new Error(d.error[0]); const b=Object.values(d.result)[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
+    okx:     async()=>{ const d=await getJSON("https://www.okx.com/api/v5/market/books?instId="+C.okx+"&sz=400"); const b=d.data[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
+    bybit:   async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/orderbook?category=linear&symbol="+C.by+"&limit=500"); return {bids:num(d.result.b),asks:num(d.result.a)}; }
+  };
+}
+function tradeFetchers(c){
+  const C = COINS[c];
+  return {
+    binance: async()=>{ const d=await getJSON("https://api.binance.com/api/v3/aggTrades?symbol="+C.bn+"&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
+    binancef:async()=>{ const d=await getJSON("https://fapi.binance.com/fapi/v1/aggTrades?symbol="+C.bn+"&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
+    // Coinbase "side" is the maker side, so the market order is the opposite
+    coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/"+C.cb+"/trades?limit=1000"); return d.map(t=>({p:+t.price,q:+t.size,side:t.side==="buy"?"sell":"buy",t:Date.parse(t.time)})); }
+  };
+}
 
-let books = {}, trades = {}, lastAt = null, busy = false;
-const seen = new Map();   // persistence: key -> {count, price}
+let books = {}, trades = {}, today = null, lastAt = null, busy = false, loadId = 0;
+const seen = new Map();   // wall persistence: key -> {count, price}
 
 async function refresh(){
   if(busy) return; busy = true;
+  const my = ++loadId, c = coin;
   $("refresh").disabled = true; $("refresh").textContent = "Loading…";
-  const ids = VENUES.map(v=>v.id);
-  const res = await Promise.allSettled(ids.map(id=>BOOKS[id]()));
-  const nb = {};
-  res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
-  const tIds = Object.keys(TRADES);
-  const tr = await Promise.allSettled(tIds.map(id=>TRADES[id]()));
-  const nt = {}; tr.forEach((r,i)=>{ if(r.status==="fulfilled") nt[tIds[i]] = r.value; });
-  books = nb; trades = nt; lastAt = new Date();
-  await loadToday();
-  trackPersistence();
-  busy = false; $("refresh").disabled = false; $("refresh").textContent = "Refresh";
-  render();
+  try{
+    const BF = bookFetchers(c), ids = VENUES.map(v=>v.id);
+    const [res, tr, td] = await Promise.all([
+      Promise.allSettled(ids.map(id=>BF[id]())),
+      (async()=>{ const TF=tradeFetchers(c), tIds=Object.keys(TF); const r=await Promise.allSettled(tIds.map(id=>TF[id]())); const o={}; r.forEach((x,i)=>{ if(x.status==="fulfilled") o[tIds[i]]=x.value; }); return o; })(),
+      loadToday(c)
+    ]);
+    if(my!==loadId || c!==coin) return;   // coin changed while loading
+    const nb = {};
+    res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
+    books = nb; trades = tr; today = td; lastAt = new Date();
+    trackPersistence();
+    render();
+  } finally {
+    busy = false; $("refresh").disabled = false; $("refresh").textContent = "Refresh";
+  }
+}
+function switchCoin(c){
+  coin = c; store.coin = c; save();
+  enabled = new Set(per(c).venues);
+  books = {}; trades = {}; today = null; lastAt = null; seen.clear();
+  for(const k in status) delete status[k];
+  loadId++; busy = false;
+  renderCoins(); fillControls(); render(); renderAlerts();
+  refresh();
 }
 
 // ---------- analysis ----------
 function midOf(b){ return b && b.bids.length && b.asks.length ? (b.bids[0][0]+b.asks[0][0])/2 : null; }
 function refMid(){
-  const pref = ["binance","coinbase","binancef","okx","bybit","kraken"];
-  for(const id of pref){ const m = midOf(books[id]); if(m) return m; }
+  for(const id of ["binance","coinbase","binancef","okx","bybit","kraken"]){ const m = midOf(books[id]); if(m) return m; }
   return null;
 }
 function levelsInRange(mid, range){
@@ -298,55 +399,46 @@ function levelsInRange(mid, range){
 }
 function trackPersistence(){
   const s = settings(); const mid = refMid(); if(!mid) return;
-  const walls = levelsInRange(mid, Math.max(s.range,0.05)).filter(l=>l.q>=s.shark);
+  const walls = levelsInRange(mid, s.range).filter(l=>l.q>=s.shark);
   const next = new Map();
   for(const w of walls){
-    // match a previous wall on same venue/side within 0.05%
     let prevCount = 0;
     for(const [k,v] of seen){
       if(k.startsWith(w.ex+"|"+w.side+"|") && Math.abs(v.price-w.p)/w.p <= 0.0005){ prevCount = Math.max(prevCount, v.count); }
     }
-    const key = w.ex+"|"+w.side+"|"+w.p;
-    next.set(key,{price:w.p,count:prevCount+1});
+    next.set(w.ex+"|"+w.side+"|"+w.p,{price:w.p,count:prevCount+1});
   }
   seen.clear(); next.forEach((v,k)=>seen.set(k,v));
 }
 function seenCount(l){ const v = seen.get(l.ex+"|"+l.side+"|"+l.p); return v?v.count:1; }
 
-// ---------- formatting ----------
-const fmtP = p=>p.toLocaleString("en-GB",{maximumFractionDigits:p<1000?2:0});
-const fmtQ = q=>q>=100?q.toFixed(0):q>=10?q.toFixed(1):q.toFixed(2);
-const fmtUSD = v=>v>=1e9?"$"+(v/1e9).toFixed(2)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":"$"+(v/1e3).toFixed(0)+"k";
-const pct = x=>(x>=0?"+":"")+(x*100).toFixed(2)+"%";
-const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function tier(q,s){ return q>=s.whale?"whale":q>=s.shark?"shark":""; }
-
 // ---------- render ----------
 function render(){
   renderVenues();
   renderToday();
-  const s = settings();
+  const s = settings(), U = coin;
   $("stamp").textContent = lastAt ? "Updated "+lastAt.toLocaleTimeString("en-GB") : "Not loaded yet";
   const mid = refMid();
   if(!mid){
-    $("ladder").innerHTML = lastAt ? `<div class="empty err">No venue answered. Your browser or network may be blocking the exchange APIs — try opening this file in Chrome on a computer.</div>` : `<div class="empty">Press Refresh to load the order books.</div>`;
-    $("chips").innerHTML=""; return;
+    $("ladder").innerHTML = lastAt ? `<div class="empty err">No exchange answered. Your network may be blocking the exchange APIs.</div>` : `<div class="empty">Loading the order books…</div>`;
+    $("chips").innerHTML=""; ["bidWalls","askWalls","prints","offbook"].forEach(id=>$(id).innerHTML="—"); $("flow").innerHTML="";
+    return;
   }
   const levels = levelsInRange(mid, s.range);
+  const bdp = decimalsFor(s.bin);
+  const binOf = (p,side)=> +((side==="bid" ? Math.floor(p/s.bin+1e-9) : Math.ceil(p/s.bin-1e-9))*s.bin).toFixed(bdp);
 
-  // bins
   const bins = new Map();
   for(const l of levels){
-    const b = l.side==="bid" ? Math.floor(l.p/s.bin)*s.bin : Math.ceil(l.p/s.bin)*s.bin;
-    const key = l.side+"|"+b;
+    const b = binOf(l.p,l.side), key = l.side+"|"+b;
     if(!bins.has(key)) bins.set(key,{side:l.side,price:b,total:0,by:{}});
     const o = bins.get(key); o.total += l.q; o.by[l.ex]=(o.by[l.ex]||0)+l.q;
   }
   const bidBins = [...bins.values()].filter(b=>b.side==="bid").sort((a,b)=>b.price-a.price);
   const askBins = [...bins.values()].filter(b=>b.side==="ask").sort((a,b)=>b.price-a.price);
-  const maxBin = Math.max(1,...bidBins.map(b=>b.total),...askBins.map(b=>b.total));
+  const maxBin = Math.max(1e-9,...bidBins.map(b=>b.total),...askBins.map(b=>b.total));
 
-  // summary
+  // summary chips
   const sumSide = (side,r)=>levels.filter(l=>l.side===side && Math.abs(l.p-mid)/mid<=r).reduce((a,l)=>a+l.q,0);
   const b1=sumSide("bid",0.01), a1=sumSide("ask",0.01), bR=sumSide("bid",s.range), aR=sumSide("ask",s.range);
   const imb = (b,a)=> (b+a)? (b-a)/(b+a) : 0;
@@ -355,31 +447,31 @@ function render(){
   const topBid = bidBins.reduce((m,b)=>b.total>(m?m.total:0)?b:m,null);
   const topAsk = askBins.reduce((m,b)=>b.total>(m?m.total:0)?b:m,null);
   const chip=(label,val,sub,color)=>`<div class="chip"><small>${label}</small><b style="${color?`color:${color}`:""}">${val}</b><div class="sub">${sub}</div></div>`;
+  const premAbs = prem==null?"":(Math.abs(prem)>=10?Math.abs(prem).toFixed(0):Math.abs(prem).toFixed(Math.abs(prem)>=1?2:3));
   $("chips").innerHTML =
-    chip("Mid price", "$"+fmtP(mid), Object.keys(books).length+" venues live") +
-    chip("Imbalance ±1%", pct(imb(b1,a1)).replace("%","")+"%", fmtQ(b1)+" bid / "+fmtQ(a1)+" ask BTC", imb(b1,a1)>=0?"var(--bid)":"var(--ask)") +
-    chip("Imbalance ±"+(s.range*100)+"%", pct(imb(bR,aR)).replace("%","")+"%", fmtQ(bR)+" bid / "+fmtQ(aR)+" ask BTC", imb(bR,aR)>=0?"var(--bid)":"var(--ask)") +
-    chip("Biggest bid bin", topBid?"$"+fmtP(topBid.price):"—", topBid?fmtQ(topBid.total)+" BTC · "+pct((topBid.price-mid)/mid):"", "var(--bid)") +
-    chip("Biggest ask bin", topAsk?"$"+fmtP(topAsk.price):"—", topAsk?fmtQ(topAsk.total)+" BTC · "+pct((topAsk.price-mid)/mid):"", "var(--ask)") +
-    chip("Coinbase premium", prem==null?"—":(prem>=0?"+$":"−$")+Math.abs(prem).toFixed(0), prem==null?"needs Coinbase + Binance":pct(prem/bnMid)+" vs Binance", prem==null?"":prem>=0?"var(--bid)":"var(--ask)");
+    chip(U+" mid price", "$"+fmtP(mid), Object.keys(books).length+" venues live") +
+    chip("Imbalance ±1%", pct(imb(b1,a1)), fmtQ(b1)+" bid / "+fmtQ(a1)+" ask "+U, imb(b1,a1)>=0?"var(--bid)":"var(--ask)") +
+    chip("Imbalance ±"+(s.range*100)+"%", pct(imb(bR,aR)), fmtQ(bR)+" bid / "+fmtQ(aR)+" ask "+U, imb(bR,aR)>=0?"var(--bid)":"var(--ask)") +
+    chip("Biggest bid bin", topBid?"$"+fmtP(topBid.price):"—", topBid?fmtQ(topBid.total)+" "+U+" · "+pct((topBid.price-mid)/mid):"", "var(--bid)") +
+    chip("Biggest ask bin", topAsk?"$"+fmtP(topAsk.price):"—", topAsk?fmtQ(topAsk.total)+" "+U+" · "+pct((topAsk.price-mid)/mid):"", "var(--ask)") +
+    chip("Coinbase premium", prem==null?"—":(prem>=0?"+$":"−$")+premAbs, prem==null?"needs Coinbase + Binance":pct(prem/bnMid)+" vs Binance", prem==null?"":prem>=0?"var(--bid)":"var(--ask)");
 
   // ladder
   const row = b=>{
     const t = tier(b.total,s);
-    const segs = VENUES.filter(v=>b.by[v.id]).map(v=>`<span style="width:${(b.by[v.id]/maxBin*100).toFixed(2)}%;background:${v.color};opacity:${b.side==="bid"?.85:.6}" title="${v.name}: ${fmtQ(b.by[v.id])} BTC"></span>`).join("");
+    const segs = VENUES.filter(v=>b.by[v.id]).map(v=>`<span style="width:${(b.by[v.id]/maxBin*100).toFixed(2)}%;background:${v.color};opacity:${b.side==="bid"?.85:.6}" title="${v.name}: ${fmtQ(b.by[v.id])} ${U}"></span>`).join("");
     return `<div class="row ${b.side} ${t}"><span class="px">${fmtP(b.price)}</span><div class="bar">${segs}</div><span class="qty">${fmtQ(b.total)}</span><span class="tag">${t==="whale"?"🐋":t==="shark"?"🦈":""}</span></div>`;
   };
   $("ladder").innerHTML = askBins.map(row).join("") +
     `<div class="mid"><span>MID $${fmtP(mid)}</span><span>bins $${s.bin}</span></div>` +
     bidBins.map(row).join("");
-  // keep mid in view
   const ld=$("ladder"), m=ld.querySelector(".mid"); if(m) ld.scrollTop = m.offsetTop - ld.clientHeight/2;
 
   // walls
   const wallTable = side=>{
     const w = levels.filter(l=>l.side===side && l.q>=s.shark).sort((a,b)=>b.q-a.q).slice(0,20);
-    if(!w.length) return `<div class="empty">No single ${side} level ≥ ${s.shark} BTC within ±${s.range*100}%.</div>`;
-    return `<table><thead><tr><th>Price</th><th class="r">BTC</th><th class="r">Value</th><th class="r">From mid</th><th>Venue</th><th>Tier</th><th>Seen</th></tr></thead><tbody>` +
+    if(!w.length) return `<div class="empty">No single ${side} level ≥ ${fmtQ(s.shark)} ${U} within ±${s.range*100}%.</div>`;
+    return `<table><thead><tr><th>Price</th><th class="r">${U}</th><th class="r">Value</th><th class="r">From mid</th><th>Venue</th><th>Tier</th><th>Seen</th></tr></thead><tbody>` +
       w.map(l=>{ const t=tier(l.q,s), c=seenCount(l);
         return `<tr><td class="p-${side}">${fmtP(l.p)}</td><td class="r">${fmtQ(l.q)}</td><td class="r">${fmtUSD(l.q*l.p)}</td><td class="r">${pct((l.p-mid)/mid)}</td><td><span style="color:${VCOL[l.ex]}">●</span> ${esc(VNAME[l.ex])}</td><td><span class="pill p-${t}">${t==="whale"?"🐋 Whale":"🦈 Shark"}</span></td><td class="${c>1?"sticky":""}">${c>1?"● ×"+c:"new"}</td></tr>`;
       }).join("") + `</tbody></table>`;
@@ -393,53 +485,58 @@ function render(){
   const big = all.filter(t=>t.q>=s.print).sort((a,b)=>b.t-a.t);
   const buy = big.filter(t=>t.side==="buy").reduce((a,t)=>a+t.q,0), sell = big.filter(t=>t.side==="sell").reduce((a,t)=>a+t.q,0);
   const tot = buy+sell;
-  $("flow").innerHTML = tot ? `<div class="note"><b class="p-bid">${fmtQ(buy)} BTC bought</b> vs <b class="p-ask">${fmtQ(sell)} BTC sold</b> in prints ≥ ${s.print} BTC (last ~1,000 trades per venue)</div><div class="flow"><span style="width:${buy/tot*100}%;background:var(--bid)"></span><span style="width:${sell/tot*100}%;background:var(--ask)"></span></div>` : "";
-  $("prints").innerHTML = big.length ? `<table><thead><tr><th>Time</th><th>Side</th><th class="r">BTC</th><th class="r">Price</th><th class="r">Value</th><th>Venue</th></tr></thead><tbody>` +
+  $("flow").innerHTML = tot ? `<div class="note"><b class="p-bid">${fmtQ(buy)} ${U} bought</b> vs <b class="p-ask">${fmtQ(sell)} ${U} sold</b> in prints ≥ ${fmtQ(s.print)} ${U} (last ~1,000 trades per venue)</div><div class="flow"><span style="width:${buy/tot*100}%;background:var(--bid)"></span><span style="width:${sell/tot*100}%;background:var(--ask)"></span></div>` : "";
+  $("prints").innerHTML = big.length ? `<table><thead><tr><th>Time</th><th>Side</th><th class="r">${U}</th><th class="r">Price</th><th class="r">Value</th><th>Venue</th></tr></thead><tbody>` +
     big.slice(0,25).map(t=>`<tr><td>${new Date(t.t).toLocaleTimeString("en-GB")}</td><td class="p-${t.side==="buy"?"bid":"ask"}">${t.side==="buy"?"Buy":"Sell"}</td><td class="r">${fmtQ(t.q)}</td><td class="r">${fmtP(t.p)}</td><td class="r">${fmtUSD(t.q*t.p)}</td><td><span style="color:${VCOL[t.ex]}">●</span> ${esc(VNAME[t.ex])}</td></tr>`).join("") + `</tbody></table>`
-    : `<div class="empty">No market orders ≥ ${s.print} BTC in the latest trades.</div>`;
+    : `<div class="empty">No market orders ≥ ${fmtQ(s.print)} ${U} in the latest trades.</div>`;
 
   // off-book
   const premTxt = prem==null ? "Coinbase premium unavailable (needs both Coinbase and Binance to load)."
-    : prem>0 ? `Coinbase trades <b>$${prem.toFixed(0)} above</b> Binance. A persistent premium usually means US institutions and OTC-linked desks are net buying.`
-    : `Coinbase trades <b>$${Math.abs(prem).toFixed(0)} below</b> Binance. A persistent discount usually means US institutional selling or weak spot demand.`;
+    : prem>0 ? `Coinbase trades <b>$${premAbs} above</b> Binance. A persistent premium usually means US institutions and OTC-linked desks are net buying.`
+    : `Coinbase trades <b>$${premAbs} below</b> Binance. A persistent discount usually means US institutional selling or weak spot demand.`;
   const persist = [...seen.values()].filter(v=>v.count>=3).length;
   $("offbook").innerHTML = `<p style="margin:0 0 8px">${premTxt}</p><p style="margin:0 0 8px">Walls held for 3+ refreshes: <b>${persist}</b>. Long-lived walls are more likely real intent than spoofing.</p><p style="margin:0">Dark-pool and OTC block trades never show in these books. They surface later through the Coinbase premium, exchange inflows and outflows, and ETF flow reports.</p>`;
 }
 
 // ---------- today's buying vs selling ----------
-let today = null;
-async function loadToday(){
+async function loadToday(c){
+  const C = COINS[c];
   const mid = new Date(); mid.setHours(0,0,0,0);
   const start = mid.getTime();
   const urls = [
-    "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=288&startTime="+start,
-    "https://fapi.binance.com/fapi/v1/klines?symbol=BTCUSDT&interval=5m&limit=288&startTime="+start
+    "https://api.binance.com/api/v3/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start,
+    "https://fapi.binance.com/fapi/v1/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start
   ];
   const res = await Promise.allSettled(urls.map(u=>getJSON(u)));
   const bars = new Map(); let sources = 0;
-  res.forEach(r=>{
+  res.forEach((r,idx)=>{
     if(r.status!=="fulfilled" || !Array.isArray(r.value)) return;
     sources++;
     r.value.forEach(k=>{
       const t=k[0], vol=+k[5], buy=+k[9];
       const b = bars.get(t) || {t, buy:0, sell:0, close:+k[4]};
-      b.buy += buy; b.sell += vol-buy; b.close = +k[4];
+      b.buy += buy; b.sell += vol-buy;
+      if(idx===0 || !bars.has(t)) b.close = +k[4];   // spot price preferred
       bars.set(t,b);
     });
   });
-  if(!sources){ today = {error:true}; return; }
+  if(!sources) return {error:true, start};
   const list = [...bars.values()].sort((a,b)=>a.t-b.t);
   let cvd = 0; list.forEach(b=>{ cvd += b.buy-b.sell; b.cvd = cvd; });
-  today = {list, sources};
+  // hourly net
+  const hours = [];
+  list.forEach(b=>{ const h = Math.floor((b.t-start)/3600000); if(!hours[h]) hours[h]={h, t:start+h*3600000, buy:0, sell:0}; hours[h].buy+=b.buy; hours[h].sell+=b.sell; });
+  for(let i=0;i<hours.length;i++) if(!hours[i]) hours[i]={h:i,t:start+i*3600000,buy:0,sell:0};
+  hours.forEach(h=>h.net=h.buy-h.sell);
+  return {list, hours, start, sources};
 }
+let hoverIdx = null;
 function renderToday(){
-  const box = $("today");
-  if(!today){ return; }
-  if(today.error || !today.list.length){ box.innerHTML = `<div class="empty err">Couldn't load today's figures from Binance.</div>`; drawCVD([]); return; }
-  const s = settings();
+  const box = $("today"), U = coin;
+  if(!today){ box.innerHTML = `<div class="empty">Loading today's buying and selling…</div>`; $("readout").innerHTML=""; drawChart(); return; }
+  if(today.error || !today.list.length){ box.innerHTML = `<div class="empty err">Couldn't load today's figures from Binance.</div>`; $("readout").innerHTML=""; drawChart(); return; }
   const L = today.list;
   const buy = L.reduce((a,b)=>a+b.buy,0), sell = L.reduce((a,b)=>a+b.sell,0), net = buy-sell;
-  // pace: latest 5-min bar against the average of the previous hour
   const last = L[L.length-1], prev = L.slice(-13,-1);
   const avgBuy = prev.length ? prev.reduce((a,b)=>a+b.buy,0)/prev.length : 0;
   const avgSell = prev.length ? prev.reduce((a,b)=>a+b.sell,0)/prev.length : 0;
@@ -447,84 +544,172 @@ function renderToday(){
   const accel = +$("accel").value || 3;
   const paceSide = sx>=bx ? "Sell" : "Buy", paceX = Math.max(bx,sx);
   const paceCol = paceX>=accel ? (paceSide==="Sell"?"var(--ask)":"var(--bid)") : "var(--fg)";
-  const stat=(label,val,sub,col)=>`<div class="stat"><small>${label}</small><b style="${col?`color:${col}`:""}">${val}</b><span>${sub}</span></div>`;
+  const open = L[0].close, chg = (last.close-open)/open;
+  const stat=(label,val,sub,col,cls)=>`<div class="stat ${cls||""}"><small>${label}</small><b style="${col?`color:${col}`:""}">${val}</b><span>${sub}</span></div>`;
   box.innerHTML =
-    stat("Bought today", fmtQ(buy)+" BTC", "market buys since midnight", "var(--bid)") +
-    stat("Sold today", fmtQ(sell)+" BTC", "market sells since midnight", "var(--ask)") +
-    stat("Net", (net>=0?"+":"−")+fmtQ(Math.abs(net))+" BTC", ((buy/(buy+sell))*100).toFixed(1)+"% of volume was buying", net>=0?"var(--bid)":"var(--ask)") +
-    stat("Last 5 min pace", paceX? paceSide+" "+paceX.toFixed(1)+"×" : "—", "vs average 5 min of the past hour", paceCol);
-  drawCVD(L);
+    stat("Bought today", fmtBig(buy)+" "+U, "market buys since midnight", "var(--bid)") +
+    stat("Sold today", fmtBig(sell)+" "+U, "market sells since midnight", "var(--ask)") +
+    stat("Net", signed(net,fmtBig)+" "+U, ((buy/(buy+sell))*100).toFixed(1)+"% of volume was buying", net>=0?"var(--bid)":"var(--ask)") +
+    stat("Price today", pct(chg), "$"+fmtP(open)+" → $"+fmtP(last.close), chg>=0?"var(--bid)":"var(--ask)") +
+    stat("Last 5 min pace", paceX? paceSide+" "+paceX.toFixed(1)+"×" : "—", "vs average 5 min of the past hour", paceCol, "wide");
+  drawChart();
 }
-function drawCVD(L){
-  const cv = $("cvd"); const w = cv.clientWidth || 600, h = 160, dpr = window.devicePixelRatio||1;
-  cv.width = w*dpr; cv.height = h*dpr; const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
-  g.clearRect(0,0,w,h);
-  if(!L.length) return;
-  const css = getComputedStyle(document.documentElement);
-  const cAcc = css.getPropertyValue("--accent").trim(), cMut = css.getPropertyValue("--muted").trim(), cLine = css.getPropertyValue("--line").trim();
-  const padL=8, padR=56, padT=10, padB=18, W=w-padL-padR, H=h-padT-padB;
-  const n = Math.max(L.length-1,1);
-  const X = i=> padL + (i/n)*W;
-  // price (faint, own scale)
-  const ps = L.map(b=>b.close), pMin=Math.min(...ps), pMax=Math.max(...ps), pR=(pMax-pMin)||1;
-  g.strokeStyle=cMut; g.globalAlpha=.55; g.lineWidth=1; g.beginPath();
-  L.forEach((b,i)=>{ const y=padT+H-((b.close-pMin)/pR)*H; i?g.lineTo(X(i),y):g.moveTo(X(i),y); }); g.stroke(); g.globalAlpha=1;
-  // cvd
-  const cs = L.map(b=>b.cvd), cMin=Math.min(0,...cs), cMax=Math.max(0,...cs), cR=(cMax-cMin)||1;
-  const Y = v=> padT+H-((v-cMin)/cR)*H;
-  g.strokeStyle=cLine; g.setLineDash([3,3]); g.beginPath(); g.moveTo(padL,Y(0)); g.lineTo(padL+W,Y(0)); g.stroke(); g.setLineDash([]);
-  g.strokeStyle=cAcc; g.lineWidth=2; g.beginPath();
-  L.forEach((b,i)=>{ i?g.lineTo(X(i),Y(b.cvd)):g.moveTo(X(i),Y(b.cvd)); }); g.stroke();
-  const lx=X(L.length-1), ly=Y(cs[cs.length-1]); g.fillStyle=cAcc; g.beginPath(); g.arc(lx,ly,3.5,0,Math.PI*2); g.fill();
-  // labels
-  g.font="11px "+css.getPropertyValue("--mono"); g.fillStyle=cMut; g.textAlign="left";
-  g.fillText((cMax>=0?"+":"")+fmtQ(cMax), padL+W+6, padT+9);
-  g.fillText((cMin<0?"−":"")+fmtQ(Math.abs(cMin)), padL+W+6, padT+H);
-  g.fillText("00:00", padL, h-4);
-  g.textAlign="right"; g.fillText(new Date(L[L.length-1].t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}), padL+W, h-4);
+function setReadout(i){
+  if(!today || !today.list || !today.list.length){ $("readout").innerHTML=""; return; }
+  const L = today.list, b = L[Math.max(0,Math.min(L.length-1, i==null?L.length-1:i))];
+  const h = today.hours[Math.floor((b.t-today.start)/3600000)];
+  const hl = h ? (new Date(h.t).getHours()+"").padStart(2,"0")+":00–"+((new Date(h.t).getHours()+1)%24+"").padStart(2,"0")+":00" : "";
+  $("readout").innerHTML =
+    `<span class="t">${i==null?"Now":""} ${hhmm(Math.min(b.t+300000, Date.now()))}</span>`+
+    `<span style="color:var(--price)">Price <b>$${fmtP(b.close)}</b></span>`+
+    `<span style="color:var(--accent)">Net since midnight <b>${signed(b.cvd,fmtQ)} ${coin}</b></span>`+
+    (h?`<span style="color:${h.net>=0?"var(--bid)":"var(--ask)"}">${hl} net <b>${signed(h.net,fmtQ)}</b></span>`:"");
 }
+function drawChart(){
+  const cv = $("cvd"); const w = cv.clientWidth || 600, h = 300, dpr = window.devicePixelRatio||1;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); cv.style.height = h+"px";
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  setReadout(hoverIdx);
+  if(!today || !today.list || !today.list.length) return;
+  const css = getComputedStyle(document.documentElement), tok = n=>css.getPropertyValue(n).trim();
+  const cAcc=tok("--accent"), cPrice=tok("--price"), cMut=tok("--muted"), cLine=tok("--line"), cBid=tok("--bid"), cAsk=tok("--ask"), cFg=tok("--fg");
+  const font = "11px "+tok("--mono");
+  const L = today.list, H = today.hours;
+  // layout
+  g.font = font;
+  const padL = 58, padR = 52, top = 8, mainH = 180, gap = 16, barH = 60, axisH = 18;
+  const W = Math.max(40, w-padL-padR);
+  const mainTop = top, mainBot = top+mainH, barTop = mainBot+gap, barBot = barTop+barH;
+  const t0 = today.start, t1 = Math.max(L[L.length-1].t+300000, t0+3600000);
+  const X = t => padL + (t-t0)/(t1-t0)*W;
+  // scales with 4 shared gridlines
+  const ps = L.map(b=>b.close), pMin=Math.min(...ps), pMax=Math.max(...ps), pPad=(pMax-pMin||pMax*0.001)*0.08;
+  const pLo=pMin-pPad, pHi=pMax+pPad;
+  const cs = L.map(b=>b.cvd), cMin=Math.min(0,...cs), cMax=Math.max(0,...cs), cPad=(cMax-cMin||1)*0.08;
+  const cLo=cMin-cPad, cHi=cMax+cPad;
+  const YP = v => mainBot - (v-pLo)/(pHi-pLo)*mainH;
+  const YC = v => mainBot - (v-cLo)/(cHi-cLo)*mainH;
+  const GL = 4;
+  g.textBaseline="middle";
+  for(let i=0;i<=GL;i++){
+    const y = mainTop + i*mainH/GL;
+    g.strokeStyle=cLine; g.lineWidth=1; g.globalAlpha=.7; g.beginPath(); g.moveTo(padL,Math.round(y)+.5); g.lineTo(padL+W,Math.round(y)+.5); g.stroke(); g.globalAlpha=1;
+    const pv = pHi - i*(pHi-pLo)/GL, cvv = cHi - i*(cHi-cLo)/GL;
+    g.fillStyle=cPrice; g.textAlign="right"; g.fillText(fmtP(+pv.toPrecision(6)), padL-6, y);
+    g.fillStyle=cAcc; g.textAlign="left"; g.fillText(signed(cvv,fmtK), padL+W+6, y);
+  }
+  // zero line for net
+  if(cLo<0 && cHi>0){ g.strokeStyle=cAcc; g.globalAlpha=.35; g.setLineDash([3,3]); g.beginPath(); g.moveTo(padL,YC(0)); g.lineTo(padL+W,YC(0)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; }
+  // hour gridlines + labels
+  const hourPx = W/((t1-t0)/3600000);
+  const every = [1,2,3,4,6].find(s=>s*hourPx>=40) || 6;
+  g.textBaseline="alphabetic"; g.textAlign="center";
+  for(let hr=0; t0+hr*3600000<=t1; hr++){
+    const x = Math.round(X(t0+hr*3600000))+.5;
+    g.strokeStyle=cLine; g.globalAlpha=.45; g.beginPath(); g.moveTo(x,mainTop); g.lineTo(x,barBot); g.stroke(); g.globalAlpha=1;
+    if(hr%every===0){ g.fillStyle=cMut; g.fillText((String(new Date(t0+hr*3600000).getHours())).padStart(2,"0")+":00", Math.min(Math.max(x,padL+16),padL+W-16), barBot+axisH-4); }
+  }
+  // price line
+  g.lineJoin="round";
+  g.strokeStyle=cPrice; g.lineWidth=1.8; g.beginPath();
+  L.forEach((b,i)=>{ const x=X(b.t+300000), y=YP(b.close); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke();
+  // net line
+  g.strokeStyle=cAcc; g.lineWidth=2.2; g.beginPath();
+  L.forEach((b,i)=>{ const x=X(b.t+300000), y=YC(b.cvd); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke();
+  // end dots
+  const lb=L[L.length-1], lx=X(lb.t+300000);
+  g.fillStyle=cPrice; g.beginPath(); g.arc(lx,YP(lb.close),3.5,0,Math.PI*2); g.fill();
+  g.fillStyle=cAcc; g.beginPath(); g.arc(lx,YC(lb.cvd),3.5,0,Math.PI*2); g.fill();
+  // hourly bars
+  const hMax = Math.max(1e-9,...H.map(x=>Math.abs(x.net)));
+  const zeroY = barTop + barH/2;
+  g.strokeStyle=cLine; g.beginPath(); g.moveTo(padL,zeroY+.5); g.lineTo(padL+W,zeroY+.5); g.stroke();
+  H.forEach(hb=>{
+    const x0 = X(hb.t), x1 = X(Math.min(hb.t+3600000, t1));
+    const bw = Math.max(2,(x1-x0)*0.72), bx = x0+((x1-x0)-bw)/2;
+    const bh = Math.abs(hb.net)/hMax*(barH/2-2);
+    g.fillStyle = hb.net>=0 ? cBid : cAsk;
+    g.fillRect(bx, hb.net>=0 ? zeroY-bh : zeroY+1, bw, Math.max(1,bh));
+  });
+  g.fillStyle=cMut; g.textAlign="right"; g.textBaseline="middle";
+  g.fillText("+"+fmtK(hMax), padL-6, barTop+6);
+  g.fillText("−"+fmtK(hMax), padL-6, barBot-6);
+  g.textAlign="left"; g.fillText("hourly", padL+W+6, zeroY);
+  // hover marker
+  if(hoverIdx!=null && L[hoverIdx]){
+    const b=L[hoverIdx], x=X(b.t+300000);
+    g.strokeStyle=cFg; g.globalAlpha=.5; g.beginPath(); g.moveTo(x,mainTop); g.lineTo(x,barBot); g.stroke(); g.globalAlpha=1;
+    g.fillStyle=cPrice; g.beginPath(); g.arc(x,YP(b.close),4,0,Math.PI*2); g.fill();
+    g.fillStyle=cAcc; g.beginPath(); g.arc(x,YC(b.cvd),4,0,Math.PI*2); g.fill();
+  }
+  drawChart.X = X; drawChart.padL = padL; drawChart.W = W;
+}
+function pointer(ev){
+  if(!today || !today.list || !drawChart.X) return;
+  const r = $("cvd").getBoundingClientRect(), x = ev.clientX - r.left;
+  const L = today.list; let best=0, bd=Infinity;
+  for(let i=0;i<L.length;i++){ const d=Math.abs(drawChart.X(L[i].t+300000)-x); if(d<bd){bd=d;best=i;} }
+  hoverIdx = best; drawChart();
+}
+$("cvd").addEventListener("pointermove", pointer);
+$("cvd").addEventListener("pointerdown", pointer);
+$("cvd").addEventListener("pointerleave", ()=>{ hoverIdx=null; drawChart(); });
 
 // ---------- background alerts (Android app only) ----------
-const NATIVE = typeof window.Android !== "undefined";
 function syncNative(){
   if(!NATIVE) return;
-  const s = settings();
-  try{ Android.setSettings(JSON.stringify({
-    whale:s.whale, range:s.range*100, exec:+$("exec").value||25, accel:+$("accel").value||3,
-    minNet:+$("minNet").value||100, interval:+$("interval").value||60
-  })); }catch(e){}
+  const coins = {};
+  ["BTC","ETH","SOL"].forEach(c=>{ const p=per(c); coins[c]={on:!!p.on, whale:+p.whale, exec:+p.exec, minNet:+p.minNet}; });
+  try{ Android.setSettings(JSON.stringify({ coins, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
+}
+function renderWatch(){
+  if(!NATIVE) return;
+  const w = $("watch"); w.innerHTML = "<span>Alert me for:</span>";
+  ["BTC","ETH","SOL"].forEach(c=>{
+    const lab=document.createElement("label"), cb=document.createElement("input");
+    cb.type="checkbox"; cb.id="w_"+c; cb.checked=!!per(c).on;
+    cb.addEventListener("change",()=>{ per(c).on=cb.checked; save(); syncNative(); renderAlerts(); });
+    lab.append(cb, document.createTextNode(c)); w.append(lab);
+  });
 }
 function renderAlerts(){
   if(!NATIVE) return;
   let on=false; try{ on = Android.isRunning(); }catch(e){}
+  const watching = ["BTC","ETH","SOL"].filter(c=>per(c).on);
   $("alertToggle").textContent = on ? "Alerts on · tap to stop" : "Turn alerts on";
   $("alertToggle").classList.toggle("on", on);
-  $("alertState").textContent = on ? "Checking every "+$("interval").value+"s, even with the screen locked" : "Off";
+  $("alertState").textContent = on ? (watching.length? "Watching "+watching.join(", ")+" every "+$("interval").value+"s, even with the screen locked" : "On, but no coins ticked below") : "Off";
   let list=[]; try{ list = JSON.parse(Android.getAlerts()||"[]"); }catch(e){}
   $("alertList").innerHTML = list.length ? list.map(a=>`<div class="alert ${esc(a.kind||"")}"><b>${esc(a.title)}</b><span>${new Date(a.t).toLocaleTimeString("en-GB")} · ${esc(a.text)}</span></div>`).join("")
     : `<div class="empty">No alerts yet.</div>`;
 }
 if(NATIVE){
   $("alertsCard").hidden = false;
-  try{ const ns = JSON.parse(Android.getSettings()); ["exec","accel","minNet","interval"].forEach(k=>{ if(ns[k]!=null) $(k).value = ns[k]; }); }catch(e){}
+  renderWatch();
+  syncNative();
   $("alertToggle").addEventListener("click",()=>{ try{ Android.isRunning() ? Android.stopAlerts() : (syncNative(), Android.startAlerts()); }catch(e){} setTimeout(renderAlerts,400); });
   $("battBtn").addEventListener("click",()=>{ try{ Android.openBatterySettings(); }catch(e){} });
   $("appSetBtn").addEventListener("click",()=>{ try{ Android.openAppSettings(); }catch(e){} });
   $("clearBtn").addEventListener("click",()=>{ try{ Android.clearAlerts(); }catch(e){} renderAlerts(); });
-  ["exec","accel","minNet","interval","whale","range"].forEach(id=>$(id).addEventListener("change",()=>{ syncNative(); renderAlerts(); }));
   setInterval(renderAlerts, 5000);
-  renderAlerts();
 }
 
 // ---------- wiring ----------
+function numInput(id, key){
+  $(id).addEventListener("change",()=>{ const v=parseFloat($(id).value); if(!(v>0)){ $(id).value = per(coin)[key]; return; } per(coin)[key]=v; save(); syncNative(); trackPersistence(); render(); });
+}
+numInput("shark","shark"); numInput("whale","whale"); numInput("print","print"); numInput("exec","exec"); numInput("minNet","minNet");
+$("bin").addEventListener("change",()=>{ per(coin).bin=+$("bin").value; save(); render(); });
+$("range").addEventListener("change",()=>{ store.range=+$("range").value; save(); syncNative(); render(); });
+$("accel").addEventListener("change",()=>{ store.accel=+$("accel").value; save(); syncNative(); renderToday(); });
+$("interval").addEventListener("change",()=>{ store.interval=+$("interval").value; save(); syncNative(); renderAlerts(); });
 let timer=null;
 function setAuto(){ if(timer) clearInterval(timer); const s=+$("auto").value; if(s>0) timer=setInterval(refresh, s*1000); }
 $("refresh").addEventListener("click", refresh);
-$("auto").addEventListener("change", ()=>{ saveSettings(); setAuto(); });
-["bin","range","shark","whale","print"].forEach(id=>$(id).addEventListener("change",()=>{ saveSettings(); render(); }));
-$("accel").addEventListener("change", renderToday);
-let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(today && today.list) drawCVD(today.list); },150); });
-renderVenues(); setAuto(); refresh();
+$("auto").addEventListener("change", ()=>{ store.auto=+$("auto").value; save(); setAuto(); });
+let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(drawChart,150); });
+
+renderCoins(); fillControls(); render(); renderAlerts(); setAuto(); refresh();
 })();
 </script>
 </body>
