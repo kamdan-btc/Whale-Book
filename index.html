@@ -538,7 +538,7 @@ function trackPersistence(){
     for(const [k,v] of seen){
       if(k.startsWith(w.ex+"|"+w.side+"|") && Math.abs(v.price-w.p)/w.p <= 0.0005){ prevCount = Math.max(prevCount, v.count); }
     }
-    next.set(w.ex+"|"+w.side+"|"+w.p,{price:w.p,count:prevCount+1});
+    next.set(w.ex+"|"+w.side+"|"+w.p,{price:w.p,count:prevCount+1,q:w.q,ex:w.ex,side:w.side});
   }
   seen.clear(); next.forEach((v,k)=>seen.set(k,v));
 }
@@ -625,10 +625,17 @@ function render(){
 
   // off-book
   const premTxt = prem==null ? "Coinbase premium unavailable (needs both Coinbase and Binance to load)."
+    : Math.abs(prem/bnMid) < 0.0001 ? "Coinbase trades level with Binance: no sign of unusual US demand either way."
     : prem>0 ? `Coinbase trades <b>$${premAbs} above</b> Binance. A persistent premium usually means US institutions and OTC-linked desks are net buying.`
     : `Coinbase trades <b>$${premAbs} below</b> Binance. A persistent discount usually means US institutional selling or weak spot demand.`;
-  const persist = [...seen.values()].filter(v=>v.count>=3).length;
-  $("offbook").innerHTML = `<p style="margin:0 0 8px">${premTxt}</p><p style="margin:0 0 8px">Walls held for 3+ refreshes: <b>${persist}</b>. Long-lived walls are more likely real intent than spoofing.</p><p style="margin:0">Dark-pool and OTC block trades never show in these books. They surface later through the Coinbase premium, exchange inflows and outflows, and ETF flow reports.</p>`;
+  // Only whale-size walls, only the exchanges shown on this tab, and not Bitfinex/Hyperliquid:
+  // their books are grouped into wide price steps, so their levels look like permanent walls.
+  const GROUPED = new Set(["bitfinex","bitfinexf","hyper"]);
+  const held = [...seen.values()].filter(v=>v.count>=3 && v.q>=s.whale && enabled.has(v.ex) && inMarket(v.ex) && !GROUPED.has(v.ex) && Math.abs(v.price-mid)/mid<=s.range);
+  const hb = held.filter(v=>v.side==="bid").length, ha = held.length-hb;
+  const lean = hb+ha===0 ? "None yet. Counts build up as you refresh." : hb>=2*Math.max(ha,1) ? "More long-lived support below than resistance above." : ha>=2*Math.max(hb,1) ? "More long-lived resistance above than support below." : "Roughly balanced.";
+  const premNote = prem==null ? "" : " Gaps under about 0.1% matter only if they last for hours; part of a small gap can just be USDT trading slightly off $1.";
+  $("offbook").innerHTML = `<p style="margin:0 0 8px">${premTxt}${premNote}</p><p style="margin:0 0 8px">Whale walls (≥ ${fmtQ(s.whale)} ${U}) held for 3+ refreshes: <b class="p-bid">${hb} bid${hb===1?"":"s"}</b> · <b class="p-ask">${ha} ask${ha===1?"":"s"}</b>. ${lean} Long-lived walls are more likely real intent than spoofing. Bitfinex and Hyperliquid are left out of this count because their books are grouped into wide price steps.</p><p style="margin:0">Dark-pool and OTC block trades never show in these books. They surface later through the Coinbase premium, exchange inflows and outflows, and ETF flow reports.</p>`;
 }
 
 // ---------- today's buying vs selling ----------
