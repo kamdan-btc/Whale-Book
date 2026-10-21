@@ -659,7 +659,7 @@ async function okxTaker(C, ccy, kind, start){
   const inst = kind==="SPOT" ? C.okx : C.okx+"-SWAP";
   const [tv, cd] = await Promise.all([
     getJSON("https://www.okx.com/api/v5/rubik/stat/taker-volume?ccy="+ccy+"&instType="+kind+"&period=5m&begin="+start),
-    getJSON("https://www.okx.com/api/v5/market/candles?instId="+inst+"&bar=5m&limit=100")
+    getJSON("https://www.okx.com/api/v5/market/candles?instId="+inst+"&bar=5m&limit=300")
   ]);
   const rows = (tv.data||[]).map(r=>({t:+r[0], sell:+r[1], buy:+r[2]})).filter(r=>r.t>=start);
   const candles = (cd.data||[]).map(k=>({t:+k[0], close:+k[4], vol: kind==="SPOT" ? +k[5] : +k[6]}));   // coin volume
