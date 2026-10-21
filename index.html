@@ -235,21 +235,21 @@ td.r,th.r{text-align:right}
   <div class="today" id="divStats"></div>
   <h2 style="margin-top:6px">Hour by hour today</h2>
   <div class="tbl" id="divHours"><div class="empty">—</div></div>
-  <p class="note" style="margin:10px 0 0">Imbalance = net market buying as a share of that market's volume, so spot and perps can be compared fairly. Open interest = total open perp positions: rising means new bets are being opened, falling means positions are closing. These reads describe who is driving price and how fragile the move is. They are not predictions. Use the "Next hr" column to see how often each read was followed by the move it hints at.</p>
+  <p class="note" style="margin:10px 0 0">Spot = Binance (USDT, USDC and FDUSD pairs) + OKX (all spot pairs). Perps = Binance (USDT, USDC and coin-margined) + OKX (all derivatives). Open interest adds Binance, Bybit and OKX. Imbalance = net market buying as a share of that market's volume, so spot and perps can be compared fairly. Open interest = total open perp positions: rising means new bets are being opened, falling means positions are closing. These reads describe who is driving price and how fragile the move is. They are not predictions. Use the "Next hr" column to see how often each read was followed by the move it hints at.</p>
 </div>
 
-<p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance futures, Bybit linear) are where most leverage sits. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
+<p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance, Bybit and Bitfinex perps) are where most leverage sits. Bitfinex levels are grouped to 4 significant figures (for example $10 steps on BTC) and Hyperliquid levels to wider steps ($100 on BTC), because those exchanges only share a limited number of levels for free. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
 
 <script>
 (function(){
 "use strict";
 // ---------- coins ----------
 const COINS = {
-  BTC:{bn:"BTCUSDT", cb:"BTC-USD", kr:"XBTUSD", okx:"BTC-USDT", by:"BTCUSDT",
+  BTC:{bn:"BTCUSDT", cb:"BTC-USD", kr:"XBTUSD", okx:"BTC-USDT", by:"BTCUSDT", bfx:"tBTCUSD", bfxP:"tBTCF0:USTF0", hl:"BTC", hlSig:3, ctVal:0.01, bcm:"BTCUSD_PERP",
        bins:[25,50,100,250,500], bin:100, shark:10, whale:50, print:2, execSpot:10, execPerp:25, netSpot:30, netPerp:100},
-  ETH:{bn:"ETHUSDT", cb:"ETH-USD", kr:"ETHUSD", okx:"ETH-USDT", by:"ETHUSDT",
+  ETH:{bn:"ETHUSDT", cb:"ETH-USD", kr:"ETHUSD", okx:"ETH-USDT", by:"ETHUSDT", bfx:"tETHUSD", bfxP:"tETHF0:USTF0", hl:"ETH", hlSig:3, ctVal:0.1, bcm:"ETHUSD_PERP",
        bins:[1,2,5,10,25], bin:2, shark:300, whale:1500, print:50, execSpot:300, execPerp:800, netSpot:1000, netPerp:3000},
-  SOL:{bn:"SOLUSDT", cb:"SOL-USD", kr:"SOLUSD", okx:"SOL-USDT", by:"SOLUSDT",
+  SOL:{bn:"SOLUSDT", cb:"SOL-USD", kr:"SOLUSD", okx:"SOL-USDT", by:"SOLUSDT", bfx:"tSOLUSD", bfxP:"tSOLF0:USTF0", hl:"SOL", hlSig:4, ctVal:1, bcm:"SOLUSD_PERP",
        bins:[0.05,0.1,0.25,0.5,1], bin:0.1, shark:8000, whale:40000, print:1000, execSpot:8000, execPerp:20000, netSpot:25000, netPerp:80000}
 };
 const VENUES = [
@@ -258,9 +258,14 @@ const VENUES = [
   {id:"coinbase", name:"Coinbase",      color:"#3b82f6"},
   {id:"kraken",   name:"Kraken",        color:"#8b6cf5"},
   {id:"okx",      name:"OKX spot",      color:"#d6dde6"},
-  {id:"bybit",    name:"Bybit perp",    color:"#f7a600"}
+  {id:"bybit",    name:"Bybit perp",    color:"#f7a600"},
+  {id:"bitfinex", name:"Bitfinex spot", color:"#3fbf5f"},
+  {id:"bitfinexf",name:"Bitfinex perp", color:"#8fd16a"},
+  {id:"okxf",     name:"OKX perp",      color:"#9aa6b2"},
+  {id:"bybits",   name:"Bybit spot",    color:"#ffd36b"},
+  {id:"hyper",    name:"Hyperliquid perp", color:"#5ee6c8"}
 ];
-const SPOT = new Set(["binance","coinbase","kraken","okx"]), PERP = new Set(["binancef","bybit"]);
+const SPOT = new Set(["binance","coinbase","kraken","okx","bitfinex","bybits"]), PERP = new Set(["binancef","bybit","bitfinexf","okxf","hyper"]);
 const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps"};
 let market = "all";
 function inMarket(id){ return market==="all" || (market==="spot" ? SPOT.has(id) : PERP.has(id)); }
@@ -285,6 +290,8 @@ function per(c){
   delete p.exec; delete p.minNet;
   for(const k of ["bin","shark","whale","print","execSpot","execPerp","netSpot","netPerp"]) if(p[k]==null || isNaN(p[k])) p[k] = d[k];
   if(!Array.isArray(p.venues)) p.venues = VENUES.map(v=>v.id);
+  if(!p.bfxAdded){ ["bitfinex","bitfinexf"].forEach(v=>{ if(!p.venues.includes(v)) p.venues.push(v); }); p.bfxAdded = true; }
+  if(!p.v17Added){ ["okxf","bybits","hyper"].forEach(v=>{ if(!p.venues.includes(v)) p.venues.push(v); }); p.v17Added = true; }
   if(p.on==null) p.on = (c==="BTC");
   return p;
 }
@@ -345,7 +352,8 @@ function renderMarkets(){
   });
 }
 function renderTitles(){
-  const src = market==="all" ? "Binance spot + perp" : market==="spot" ? "Binance spot" : "Binance perp";
+  const names = todayRaw ? [...new Set([...(market!=="perp"?todayRaw.spotNames:[]), ...(market!=="spot"?todayRaw.perpNames:[])])] : ["Binance","OKX"];
+  const src = (names.length?names.join(" + "):"Binance") + (market==="all" ? " spot + perp" : market==="spot" ? " spot" : " perps");
   $("todayTitle").textContent = "Today's "+coin+" market orders · "+src;
   $("ladderTitle").textContent = "Depth ladder · "+(market==="all" ? "all venues" : market==="spot" ? "spot venues" : "perp venues");
 }
@@ -386,7 +394,25 @@ async function getJSON(url, ms=9000){
   try{ const r = await fetch(url,{signal:ctl.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
   finally{ clearTimeout(t); }
 }
+async function postJSON(url, body, ms=9000){
+  const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
+  try{ const r = await fetch(url,{method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body), signal:ctl.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
+  finally{ clearTimeout(t); }
+}
 const num = a=>a.map(x=>[+x[0],+x[1]]);
+// OKX perp sizes are in contracts; one contract = ctVal coins (0.01 BTC, 0.1 ETH, 1 SOL). Read it from OKX once, fall back to those values.
+const okxCtVal = {};
+async function getCtVal(c){
+  if(okxCtVal[c]) return okxCtVal[c];
+  try{ const d = await getJSON("https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId="+COINS[c].okx+"-SWAP"); const v = +d.data[0].ctVal; if(v>0){ okxCtVal[c]=v; return v; } }catch(e){}
+  return COINS[c].ctVal;
+}
+// Hyperliquid returns 20 grouped levels per side; nSigFigs sets the group size (e.g. $100 steps on BTC).
+async function hlBook(C){
+  const d = await postJSON("https://api.hyperliquid.xyz/info", {type:"l2Book", coin:C.hl, nSigFigs:C.hlSig});
+  const lv = d.levels || d;
+  return {bids: lv[0].map(l=>[+l.px,+l.sz]), asks: lv[1].map(l=>[+l.px,+l.sz])};
+}
 function bookFetchers(c){
   const C = COINS[c];
   return {
@@ -395,16 +421,56 @@ function bookFetchers(c){
     coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/"+C.cb+"/book?level=2"); return {bids:num(d.bids),asks:num(d.asks)}; },
     kraken:  async()=>{ const d=await getJSON("https://api.kraken.com/0/public/Depth?pair="+C.kr+"&count=500"); if(d.error&&d.error.length) throw new Error(d.error[0]); const b=Object.values(d.result)[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
     okx:     async()=>{ const d=await getJSON("https://www.okx.com/api/v5/market/books?instId="+C.okx+"&sz=400"); const b=d.data[0]; return {bids:num(b.bids),asks:num(b.asks)}; },
-    bybit:   async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/orderbook?category=linear&symbol="+C.by+"&limit=500"); return {bids:num(d.result.b),asks:num(d.result.a)}; }
+    bybit:   async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/orderbook?category=linear&symbol="+C.by+"&limit=500"); return {bids:num(d.result.b),asks:num(d.result.a)}; },
+    bitfinex: async()=>bfxBook(C.bfx),
+    bitfinexf:async()=>bfxBook(C.bfxP),
+    okxf:    async()=>{ const [d,cv]=await Promise.all([getJSON("https://www.okx.com/api/v5/market/books?instId="+C.okx+"-SWAP&sz=400"), getCtVal(c)]); const b=d.data[0], sc=a=>a.map(x=>[+x[0],+x[1]*cv]); return {bids:sc(b.bids),asks:sc(b.asks)}; },
+    bybits:  async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/orderbook?category=spot&symbol="+C.by+"&limit=200"); return {bids:num(d.result.b),asks:num(d.result.a)}; },
+    hyper:   async()=>hlBook(C)
   };
+}
+// Bitfinex: book rows are [price, orders, amount]; amount > 0 is a bid, < 0 an ask.
+// P1 groups prices to 4 significant figures, so 250 levels reach a few % either side.
+async function bfxBook(sym){
+  const d = await getJSON("https://api-pub.bitfinex.com/v2/book/"+sym+"/P1?len=250");
+  const bids=[], asks=[];
+  d.forEach(r=>{ const p=+r[0], a=+r[2]; if(a>0) bids.push([p,a]); else if(a<0) asks.push([p,-a]); });
+  bids.sort((x,y)=>y[0]-x[0]); asks.sort((x,y)=>x[0]-y[0]);
+  return {bids, asks};
+}
+// Bitfinex allows 15 trade requests a minute, so reuse the last answer for 30 seconds.
+const bfxTradeCache = {};
+async function bfxTrades(sym){
+  const c = bfxTradeCache[sym];
+  if(c && Date.now()-c.at < 30000) return c.data;
+  const d = await getJSON("https://api-pub.bitfinex.com/v2/trades/"+sym+"/hist?limit=1000&sort=-1");
+  const data = d.map(t=>({p:+t[3], q:Math.abs(+t[2]), side:(+t[2])>0?"buy":"sell", t:+t[1]}));
+  bfxTradeCache[sym] = {at:Date.now(), data};
+  return data;
+}
+async function binanceAgg(base, syms){
+  const res = await Promise.allSettled(syms.map(sy=>getJSON(base+sy+"&limit=1000")));
+  const out = []; let ok = 0;
+  res.forEach(r=>{ if(r.status==="fulfilled" && Array.isArray(r.value)){ ok++; r.value.forEach(t=>out.push({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); } });
+  if(!ok) throw new Error("no Binance trades");
+  return out;
 }
 function tradeFetchers(c){
   const C = COINS[c];
   return {
-    binance: async()=>{ const d=await getJSON("https://api.binance.com/api/v3/aggTrades?symbol="+C.bn+"&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
-    binancef:async()=>{ const d=await getJSON("https://fapi.binance.com/fapi/v1/aggTrades?symbol="+C.bn+"&limit=1000"); return d.map(t=>({p:+t.p,q:+t.q,side:t.m?"sell":"buy",t:t.T})); },
+    // Binance spot = USDT + USDC + FDUSD pairs; Binance perp = USDT + USDC perps
+    binance: ()=>binanceAgg("https://api.binance.com/api/v3/aggTrades?symbol=", [C.bn, C.bn.replace("USDT","USDC"), C.bn.replace("USDT","FDUSD")]),
+    binancef:()=>binanceAgg("https://fapi.binance.com/fapi/v1/aggTrades?symbol=", [C.bn, C.bn.replace("USDT","USDC")]),
+    okx:     async()=>{ const d=await getJSON("https://www.okx.com/api/v5/market/trades?instId="+C.okx+"&limit=500"); return d.data.map(t=>({p:+t.px,q:+t.sz,side:t.side,t:+t.ts})); },
+    okxf:    async()=>{ const [d,cv]=await Promise.all([getJSON("https://www.okx.com/api/v5/market/trades?instId="+C.okx+"-SWAP&limit=500"), getCtVal(c)]); return d.data.map(t=>({p:+t.px,q:+t.sz*cv,side:t.side,t:+t.ts})); },
+    bybit:   async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/recent-trade?category=linear&symbol="+C.by+"&limit=1000"); return d.result.list.map(t=>({p:+t.price,q:+t.size,side:t.side==="Buy"?"buy":"sell",t:+t.time})); },
+    bybits:  async()=>{ const d=await getJSON("https://api.bybit.com/v5/market/recent-trade?category=spot&symbol="+C.by+"&limit=60"); return d.result.list.map(t=>({p:+t.price,q:+t.size,side:t.side==="Buy"?"buy":"sell",t:+t.time})); },
+    kraken:  async()=>{ const d=await getJSON("https://api.kraken.com/0/public/Trades?pair="+C.kr+"&count=1000"); const k=Object.keys(d.result).find(x=>x!=="last"); return d.result[k].map(t=>({p:+t[0],q:+t[1],side:t[3]==="b"?"buy":"sell",t:Math.round(+t[2]*1000)})); },
+    hyper:   async()=>{ const d=await postJSON("https://api.hyperliquid.xyz/info",{type:"recentTrades", coin:C.hl}); return d.map(t=>({p:+t.px,q:+t.sz,side:t.side==="B"?"buy":"sell",t:+t.time})); },
     // Coinbase "side" is the maker side, so the market order is the opposite
-    coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/"+C.cb+"/trades?limit=1000"); return d.map(t=>({p:+t.price,q:+t.size,side:t.side==="buy"?"sell":"buy",t:Date.parse(t.time)})); }
+    coinbase:async()=>{ const d=await getJSON("https://api.exchange.coinbase.com/products/"+C.cb+"/trades?limit=1000"); return d.map(t=>({p:+t.price,q:+t.size,side:t.side==="buy"?"sell":"buy",t:Date.parse(t.time)})); },
+    bitfinex: ()=>bfxTrades(C.bfx),
+    bitfinexf:()=>bfxTrades(C.bfxP)
   };
 }
 
@@ -427,6 +493,7 @@ async function refresh(){
     const nb = {};
     res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
     books = nb; trades = tr; todayRaw = td; today = deriveToday(td); lastAt = new Date();
+    renderTitles();
     trackPersistence();
     render();
   } finally {
@@ -446,7 +513,8 @@ function switchCoin(c){
 // ---------- analysis ----------
 function midOf(b){ return b && b.bids.length && b.asks.length ? (b.bids[0][0]+b.asks[0][0])/2 : null; }
 function refMid(){
-  const order = market==="perp" ? ["binancef","bybit"] : market==="spot" ? ["binance","coinbase","okx","kraken"] : ["binance","coinbase","binancef","okx","bybit","kraken"];
+  // Hyperliquid's book is grouped into wide price steps, so it is never used for the mid price
+  const order = market==="perp" ? ["binancef","bybit","okxf","bitfinexf"] : market==="spot" ? ["binance","coinbase","okx","bybits","kraken","bitfinex"] : ["binance","coinbase","binancef","okx","bybit","okxf","bybits","kraken","bitfinex","bitfinexf"];
   for(const id of order){ const m = midOf(books[id]); if(m) return m; }
   return null;
 }
@@ -585,21 +653,92 @@ function deriveToday(raw){
   hours.forEach(h=>h.net=h.buy-h.sell);
   return {list, hours, start};
 }
+// OKX publishes taker buy/sell volume for all its spot pairs ("SPOT") and all its derivatives ("CONTRACTS").
+// Its unit isn't stated in the data, so compare it with OKX's own coin volume and convert if it is in dollars.
+async function okxTaker(C, ccy, kind, start){
+  const inst = kind==="SPOT" ? C.okx : C.okx+"-SWAP";
+  const [tv, cd] = await Promise.all([
+    getJSON("https://www.okx.com/api/v5/rubik/stat/taker-volume?ccy="+ccy+"&instType="+kind+"&period=5m&begin="+start),
+    getJSON("https://www.okx.com/api/v5/market/candles?instId="+inst+"&bar=5m&limit=100")
+  ]);
+  const rows = (tv.data||[]).map(r=>({t:+r[0], sell:+r[1], buy:+r[2]})).filter(r=>r.t>=start);
+  const candles = (cd.data||[]).map(k=>({t:+k[0], close:+k[4], vol: kind==="SPOT" ? +k[5] : +k[6]}));   // coin volume
+  return calibrate(rows, candles);
+}
+function calibrate(rows, candles){
+  const byT = new Map(candles.map(k=>[k.t,k]));
+  let a=0, b=0; rows.forEach(r=>{ const k=byT.get(r.t); if(k){ a+=r.buy+r.sell; b+=k.vol; } });
+  const price = candles.length ? candles[0].close : 0;
+  const inDollars = b>0 && price>0 && a/b > price*0.2;
+  if(!inDollars) return rows;
+  const px = t=>{ const k=byT.get(t); return k ? k.close : price; };
+  return rows.map(r=>({t:r.t, buy:r.buy/px(r.t), sell:r.sell/px(r.t)}));
+}
 async function loadToday(c){
   const C = COINS[c];
   const mid = new Date(); mid.setHours(0,0,0,0);
   const start = mid.getTime();
-  const urls = [
-    "https://api.binance.com/api/v3/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start,
-    "https://fapi.binance.com/fapi/v1/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start
+  const bk = (base, sym, cm) => getJSON(base+sym+"&interval=5m&limit=288&startTime="+start).then(d=>d.map(k=>cm
+      ? {t:k[0], buy:+k[10], sell:+k[7]-(+k[10]), close:+k[4]}      // coin-margined: base-asset columns
+      : {t:k[0], buy:+k[9],  sell:+k[5]-(+k[9]),  close:+k[4]}));
+  const safe = pr => pr.catch(()=>null);   // a pair that doesn't exist (e.g. FDUSD) is simply skipped
+  const SP="https://api.binance.com/api/v3/klines?symbol=", FP="https://fapi.binance.com/fapi/v1/klines?symbol=", DP="https://dapi.binance.com/dapi/v1/klines?symbol=";
+  const spotSrc = [
+    ["Binance", safe(bk(SP, C.bn))], ["Binance", safe(bk(SP, C.bn.replace("USDT","USDC")))], ["Binance", safe(bk(SP, C.bn.replace("USDT","FDUSD")))],
+    ["OKX", safe(okxTaker(C, c, "SPOT", start))]
   ];
-  urls.push("https://fapi.binance.com/futures/data/openInterestHist?symbol="+C.bn+"&period=5m&limit=300");
-  urls.push("https://fapi.binance.com/fapi/v1/premiumIndex?symbol="+C.bn);
-  const res = await Promise.allSettled(urls.map(u=>getJSON(u)));
-  const parse = r => (r.status==="fulfilled" && Array.isArray(r.value)) ? r.value.map(k=>({t:k[0], buy:+k[9], sell:+k[5]-(+k[9]), close:+k[4]})) : null;
-  const oi = (res[2].status==="fulfilled" && Array.isArray(res[2].value)) ? res[2].value.map(o=>({t:+o.timestamp, v:+o.sumOpenInterest})).filter(o=>o.v>0).sort((a,b)=>a.t-b.t) : null;
-  const funding = (res[3].status==="fulfilled" && res[3].value && res[3].value.lastFundingRate!=null) ? +res[3].value.lastFundingRate : null;
-  return {start, spot:parse(res[0]), perp:parse(res[1]), oi, funding};
+  const perpSrc = [
+    ["Binance", safe(bk(FP, C.bn))], ["Binance", safe(bk(FP, C.bn.replace("USDT","USDC")))], ["Binance", safe(bk(DP, C.bcm, true))],
+    ["OKX", safe(okxTaker(C, c, "CONTRACTS", start))]
+  ];
+  const ccy = c;
+  const extra = await Promise.allSettled([
+    getJSON("https://fapi.binance.com/futures/data/openInterestHist?symbol="+C.bn+"&period=5m&limit=300"),
+    getJSON("https://api.bybit.com/v5/market/open-interest?category=linear&symbol="+C.by+"&intervalTime=5min&limit=200"),
+    getJSON("https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy="+ccy+"&period=5m&begin="+start),
+    getJSON("https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId="+C.okx+"-SWAP"),
+    getJSON("https://fapi.binance.com/fapi/v1/premiumIndex?symbol="+C.bn)
+  ]);
+  async function merge(list){
+    const res = await Promise.allSettled(list.map(x=>x[1]));
+    const bars = new Map(), names = new Set(); let primary = true;
+    res.forEach((r,i)=>{
+      if(r.status!=="fulfilled" || !Array.isArray(r.value) || !r.value.length){ if(i===0) primary=false; return; }
+      names.add(list[i][0]);
+      r.value.forEach(k=>{
+        if(k.t<start) return;
+        const b = bars.get(k.t) || {t:k.t, buy:0, sell:0, close:null};
+        b.buy += k.buy; b.sell += k.sell;
+        if(k.close!=null && (b.close==null || i===0)) b.close = k.close;   // price from Binance USDT where possible
+        bars.set(k.t,b);
+      });
+    });
+    const arr = [...bars.values()].filter(b=>b.close!=null).sort((a,b)=>a.t-b.t);
+    return arr.length ? {arr, names:[...names]} : null;
+  }
+  const [sp, pp] = await Promise.all([merge(spotSrc), merge(perpSrc)]);
+  // open interest series, all in coins
+  const ok = r => r.status==="fulfilled" ? r.value : null;
+  const series = [];
+  const bnOI = ok(extra[0]); if(Array.isArray(bnOI)) series.push(bnOI.map(o=>({t:+o.timestamp, v:+o.sumOpenInterest})));
+  const byOI = ok(extra[1]); if(byOI && byOI.result && Array.isArray(byOI.result.list)) series.push(byOI.result.list.map(o=>({t:+o.timestamp, v:+o.openInterest})));
+  const okOI = ok(extra[2]), okNow = ok(extra[3]);
+  if(okOI && Array.isArray(okOI.data) && okOI.data.length){
+    let rows = okOI.data.map(r=>({t:+r[0], v:+r[1]}));
+    const latest = rows.reduce((m,r)=>r.t>m.t?r:m, rows[0]);
+    const one = okNow && okNow.data && okNow.data[0] ? +okNow.data[0].oiCcy : 0;
+    const px = sp ? sp.arr[sp.arr.length-1].close : 0;
+    if(one>0 && px>0 && latest.v/one > px*0.2){   // in dollars: convert to coins at each bar's price
+      const priceAt = t=>{ const a=sp.arr; let best=a[0].close; for(const b of a){ if(b.t<=t) best=b.close; else break; } return best; };
+      rows = rows.map(r=>({t:r.t, v:r.v/priceAt(r.t)}));
+    }
+    series.push(rows);
+  }
+  series.forEach(sr=>sr.sort((a,b)=>a.t-b.t));
+  const prem = ok(extra[4]);
+  const funding = prem && prem.lastFundingRate!=null ? +prem.lastFundingRate : null;
+  return {start, spot: sp?sp.arr:null, perp: pp?pp.arr:null, spotNames: sp?sp.names:[], perpNames: pp?pp.names:[],
+          oiSeries: series.filter(x=>x.length).map(x=>x.filter(o=>o.v>0)), oiNames:[bnOI?"Binance":null, byOI?"Bybit":null, okOI?"OKX":null].filter(Boolean), funding};
 }
 // ---------- spot vs perps ----------
 const WINS = {h1:{label:"1h", bars:12, p:0.3, oi:0.5}, h4:{label:"4h", bars:48, p:0.6, oi:1}, day:{label:"Today", bars:0, p:1, oi:2}};
@@ -654,11 +793,13 @@ function divData(raw, from, to){
   const sB=sum(S,"buy"), sS=sum(S,"sell"), pB=sum(P,"buy"), pS=sum(P,"sell");
   const before = (raw.spot||[]).filter(b=>b.t<from);
   const p0 = before.length ? before[before.length-1].close : S[0].close, p1 = S[S.length-1].close;
+  // open interest: add up every exchange that has a value at both ends of the window
   let dOI = null;
-  if(raw.oi && raw.oi.length){
-    const o0 = [...raw.oi].reverse().find(o=>o.t<=from) || raw.oi.find(o=>o.t>=from);
-    const end = to; const o1 = [...raw.oi].reverse().find(o=>o.t<=end);
-    if(o0 && o1 && o1.t>o0.t) dOI = (o1.v-o0.v)/o0.v*100;
+  if(raw.oiSeries && raw.oiSeries.length){
+    const at = (sr,t)=>{ let v=null; for(const o of sr){ if(o.t<=t) v=o.v; else break; } return v; };
+    let a=0, b=0;
+    raw.oiSeries.forEach(sr=>{ const v0 = at(sr,from) ?? (sr[0] && sr[0].t-from<=600000 ? sr[0].v : null), v1 = at(sr,to); if(v0!=null && v1!=null && v0>0){ a+=v0; b+=v1; } });
+    if(a>0) dOI = (b-a)/a*100;
   }
   // how in-step the two markets are, bar by bar
   const pm = new Map(P.map(b=>[b.t,b.buy-b.sell]));
