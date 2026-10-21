@@ -33,6 +33,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .coins{display:flex;gap:6px}
 .coins button{font:600 16px/1 var(--display);letter-spacing:.04em;padding:8px 16px;color:var(--muted)}
 .coins button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.markets{margin-bottom:12px;flex-wrap:wrap}
+.markets button{flex:1 1 0;min-width:0}
 .controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .controls input[type=number]{width:96px}
@@ -105,6 +107,26 @@ td.r,th.r{text-align:right}
 .alert b{display:block;font-weight:600}
 .alert span{color:var(--muted);font-size:12px}
 .alert.buy b{color:var(--bid)} .alert.sell b{color:var(--ask)} .alert.wall b{color:var(--whale)}
+.alert.spot{border-left:3px solid var(--accent);padding-left:9px}
+.alert.signal{border-left:3px solid var(--price);padding-left:9px}
+/* spot vs perps */
+.winsel{margin-bottom:12px}
+.winsel button{font-size:14px;padding:6px 14px}
+.read{border-left:4px solid var(--line);background:var(--panel2);border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:12px}
+.read b{display:block;font:600 20px/1.2 var(--display)}
+.read p{margin:4px 0 0;max-width:70ch}
+.read .w{color:var(--muted)}
+.read.warn{border-left-color:var(--accent)} .read.warn b{color:var(--accent)}
+.read.bad{border-left-color:var(--ask)} .read.bad b{color:var(--ask)}
+.read.good{border-left-color:var(--bid)} .read.good b{color:var(--bid)}
+.read.up{border-left-color:var(--price)} .read.up b{color:var(--price)}
+.t-warn{color:var(--accent)} .t-bad{color:var(--ask)} .t-good{color:var(--bid)} .t-up{color:var(--price)} .t-neutral{color:var(--muted)}
+.pos{color:var(--bid)} .neg{color:var(--ask)}
+#divHours table{font-size:11.5px}
+#divHours th,#divHours td{padding:4px 5px}
+#divHours tr.hr1 td{border-bottom:0;padding-bottom:1px}
+#divHours tr.hr2 td{padding-top:0;padding-bottom:7px;font-size:12px}
+.alert.perp{border-left:3px solid var(--line);padding-left:9px}
 </style>
 </head>
 <body>
@@ -120,6 +142,8 @@ td.r,th.r{text-align:right}
   </label>
   <span class="stamp" id="stamp">Not loaded yet</span>
 </div>
+
+<div class="coins markets" id="markets" role="group" aria-label="Market"></div>
 
 <div class="controls">
   <label for="bin">Price bin ($)<select id="bin"></select></label>
@@ -157,9 +181,12 @@ td.r,th.r{text-align:right}
     <span id="alertState" class="stamp">Off</span>
   </div>
   <div class="watch" id="watch"><span>Alert me for:</span></div>
+  <div class="watch" id="watchMk"><span>Markets:</span></div>
   <div class="alertSet">
-    <label for="exec"><span class="u">Big execution ≥ BTC</span><input id="exec" type="number" min="0" step="any"></label>
-    <label for="minNet"><span class="u">Min 5-min net BTC</span><input id="minNet" type="number" min="0" step="any"></label>
+    <label for="execSpot"><span class="u">Big spot order ≥ BTC</span><input id="execSpot" type="number" min="0" step="any"></label>
+    <label for="execPerp"><span class="u">Big perp order ≥ BTC</span><input id="execPerp" type="number" min="0" step="any"></label>
+    <label for="netSpot"><span class="u">Spot 5-min net ≥ BTC</span><input id="netSpot" type="number" min="0" step="any"></label>
+    <label for="netPerp"><span class="u">Perp 5-min net ≥ BTC</span><input id="netPerp" type="number" min="0" step="any"></label>
     <label for="accel">Pace alert at ×<input id="accel" type="number" min="1.5" step="0.5" value="3"></label>
     <label for="interval">Check every
       <select id="interval"><option value="30">30s</option><option value="60" selected>60s</option><option value="120">2 min</option></select>
@@ -176,7 +203,7 @@ td.r,th.r{text-align:right}
 
 <div class="grid">
   <div class="card">
-    <h2>Depth ladder · all venues</h2>
+    <h2 id="ladderTitle">Depth ladder · all venues</h2>
     <div class="legend" id="legend"></div>
     <div class="ladder" id="ladder"><div class="empty">Loading the order books…</div></div>
   </div>
@@ -201,6 +228,16 @@ td.r,th.r{text-align:right}
   </div>
 </div>
 
+<div class="card block" id="divCard" style="margin-top:14px">
+  <h2 id="divTitle">Spot vs perps · who is driving?</h2>
+  <div class="coins winsel" id="divWin" role="group" aria-label="Time window"></div>
+  <div class="read neutral" id="divNow"><b>Loading…</b></div>
+  <div class="today" id="divStats"></div>
+  <h2 style="margin-top:6px">Hour by hour today</h2>
+  <div class="tbl" id="divHours"><div class="empty">—</div></div>
+  <p class="note" style="margin:10px 0 0">Imbalance = net market buying as a share of that market's volume, so spot and perps can be compared fairly. Open interest = total open perp positions: rising means new bets are being opened, falling means positions are closing. These reads describe who is driving price and how fragile the move is. They are not predictions. Use the "Next hr" column to see how often each read was followed by the move it hints at.</p>
+</div>
+
 <p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance futures, Bybit linear) are where most leverage sits. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
 
 <script>
@@ -209,11 +246,11 @@ td.r,th.r{text-align:right}
 // ---------- coins ----------
 const COINS = {
   BTC:{bn:"BTCUSDT", cb:"BTC-USD", kr:"XBTUSD", okx:"BTC-USDT", by:"BTCUSDT",
-       bins:[25,50,100,250,500], bin:100, shark:10, whale:50, print:2, exec:25, minNet:100},
+       bins:[25,50,100,250,500], bin:100, shark:10, whale:50, print:2, execSpot:10, execPerp:25, netSpot:30, netPerp:100},
   ETH:{bn:"ETHUSDT", cb:"ETH-USD", kr:"ETHUSD", okx:"ETH-USDT", by:"ETHUSDT",
-       bins:[1,2,5,10,25], bin:2, shark:300, whale:1500, print:50, exec:800, minNet:3000},
+       bins:[1,2,5,10,25], bin:2, shark:300, whale:1500, print:50, execSpot:300, execPerp:800, netSpot:1000, netPerp:3000},
   SOL:{bn:"SOLUSDT", cb:"SOL-USD", kr:"SOLUSD", okx:"SOL-USDT", by:"SOLUSDT",
-       bins:[0.05,0.1,0.25,0.5,1], bin:0.1, shark:8000, whale:40000, print:1000, exec:20000, minNet:80000}
+       bins:[0.05,0.1,0.25,0.5,1], bin:0.1, shark:8000, whale:40000, print:1000, execSpot:8000, execPerp:20000, netSpot:25000, netPerp:80000}
 };
 const VENUES = [
   {id:"binance",  name:"Binance spot",  color:"#f0b90b"},
@@ -223,6 +260,10 @@ const VENUES = [
   {id:"okx",      name:"OKX spot",      color:"#d6dde6"},
   {id:"bybit",    name:"Bybit perp",    color:"#f7a600"}
 ];
+const SPOT = new Set(["binance","coinbase","kraken","okx"]), PERP = new Set(["binancef","bybit"]);
+const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps"};
+let market = "all";
+function inMarket(id){ return market==="all" || (market==="spot" ? SPOT.has(id) : PERP.has(id)); }
 const VCOL = Object.fromEntries(VENUES.map(v=>[v.id,v.color]));
 const VNAME = Object.fromEntries(VENUES.map(v=>[v.id,v.name]));
 const $ = id=>document.getElementById(id);
@@ -236,9 +277,13 @@ if(!store.per) store.per = {};
 // carry over thresholds from the first version
 try{ const old = JSON.parse(localStorage.getItem("btcWhaleBook.v1")); if(old && !store.per.BTC) store.per.BTC = {bin:old.bin, shark:old.shark, whale:old.whale, print:old.print, venues:old.venues}; if(old && store.range==null) store.range = old.range*100; if(old && store.auto==null) store.auto = old.auto; }catch(e){}
 let coin = COINS[store.coin] ? store.coin : "BTC";
+if(MARKETS[store.market]) market = store.market;
 function per(c){
   const d = COINS[c], p = store.per[c] = store.per[c] || {};
-  for(const k of ["bin","shark","whale","print","exec","minNet"]) if(p[k]==null || isNaN(p[k])) p[k] = d[k];
+  if(p.exec!=null && p.execPerp==null) p.execPerp = p.exec;        // from version 1.2
+  if(p.minNet!=null && p.netPerp==null) p.netPerp = p.minNet;
+  delete p.exec; delete p.minNet;
+  for(const k of ["bin","shark","whale","print","execSpot","execPerp","netSpot","netPerp"]) if(p[k]==null || isNaN(p[k])) p[k] = d[k];
   if(!Array.isArray(p.venues)) p.venues = VENUES.map(v=>v.id);
   if(p.on==null) p.on = (c==="BTC");
   return p;
@@ -248,8 +293,11 @@ function per(c){
 if(NATIVE){
   try{
     const ns = JSON.parse(Android.getSettings()||"{}");
-    if(ns.coins){ for(const c in ns.coins){ if(!COINS[c]) continue; const p=per(c), n=ns.coins[c]; ["exec","minNet","whale"].forEach(k=>{ if(n[k]!=null) p[k]=+n[k]; }); if(n.on!=null) p.on=!!n.on; } }
-    else if(ns.exec!=null){ const p=per("BTC"); p.exec=+ns.exec; if(ns.minNet!=null) p.minNet=+ns.minNet; p.on=true; }
+    if(ns.coins){ for(const c in ns.coins){ if(!COINS[c]) continue; const p=per(c), n=ns.coins[c]; if(n.exec!=null && n.execPerp==null) n.execPerp=n.exec; if(n.minNet!=null && n.netPerp==null) n.netPerp=n.minNet; ["execSpot","execPerp","netSpot","netPerp","whale"].forEach(k=>{ if(n[k]!=null) p[k]=+n[k]; }); if(n.on!=null) p.on=!!n.on; } }
+    else if(ns.exec!=null){ const p=per("BTC"); p.execPerp=+ns.exec; if(ns.minNet!=null) p.netPerp=+ns.minNet; p.on=true; }
+    if(ns.spotOn!=null) store.spotOn = !!ns.spotOn;
+    if(ns.perpOn!=null) store.perpOn = !!ns.perpOn;
+    if(ns.sigOn!=null) store.sigOn = !!ns.sigOn;
     if(ns.accel!=null) store.accel = +ns.accel;
     if(ns.interval!=null) store.interval = +ns.interval;
   }catch(e){}
@@ -286,7 +334,20 @@ function renderCoins(){
   });
   $("coinTitle").textContent = coin;
   document.querySelectorAll(".u").forEach(el=>{ el.textContent = el.textContent.replace(/(BTC|ETH|SOL)$/, coin); });
-  $("todayTitle").textContent = "Today's "+coin+" market orders · Binance spot + perp";
+  renderTitles();
+}
+function renderMarkets(){
+  $("markets").innerHTML = "";
+  Object.keys(MARKETS).forEach(m=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=MARKETS[m]; b.setAttribute("aria-pressed", m===market?"true":"false");
+    b.addEventListener("click",()=>{ if(m===market) return; market=m; store.market=m; save(); hoverIdx=null; today = deriveToday(todayRaw); renderMarkets(); renderTitles(); render(); });
+    $("markets").append(b);
+  });
+}
+function renderTitles(){
+  const src = market==="all" ? "Binance spot + perp" : market==="spot" ? "Binance spot" : "Binance perp";
+  $("todayTitle").textContent = "Today's "+coin+" market orders · "+src;
+  $("ladderTitle").textContent = "Depth ladder · "+(market==="all" ? "all venues" : market==="spot" ? "spot venues" : "perp venues");
 }
 function fillControls(){
   const p = per(coin);
@@ -294,7 +355,7 @@ function fillControls(){
   if(!COINS[coin].bins.includes(+p.bin)) p.bin = COINS[coin].bin;
   $("bin").value = String(p.bin);
   $("shark").value = p.shark; $("whale").value = p.whale; $("print").value = p.print;
-  $("exec").value = p.exec; $("minNet").value = p.minNet;
+  ["execSpot","execPerp","netSpot","netPerp"].forEach(k=>{ $(k).value = p[k]; });
 }
 if(store.range!=null) $("range").value = String(store.range);
 if(store.auto!=null) $("auto").value = String(store.auto);
@@ -305,7 +366,7 @@ if(store.interval!=null) $("interval").value = String(store.interval);
 const status = {};
 function renderVenues(){
   $("venues").innerHTML = "";
-  VENUES.forEach(v=>{
+  VENUES.filter(v=>inMarket(v.id)).forEach(v=>{
     const lab = document.createElement("label");
     lab.className = "venue" + (status[v.id]==="ok"?" ok":status[v.id]?" err":"");
     const cb = document.createElement("input"); cb.type="checkbox"; cb.id="v_"+v.id; cb.checked=enabled.has(v.id);
@@ -315,7 +376,7 @@ function renderVenues(){
     const st=document.createElement("em"); st.textContent = status[v.id]==="ok"?"live":status[v.id]?"blocked":"";
     lab.append(cb,dot,t,st); $("venues").append(lab);
   });
-  $("legend").innerHTML = VENUES.filter(v=>enabled.has(v.id)).map(v=>`<span><i style="background:${v.color}"></i>${v.name}</span>`).join("")
+  $("legend").innerHTML = VENUES.filter(v=>enabled.has(v.id) && inMarket(v.id)).map(v=>`<span><i style="background:${v.color}"></i>${v.name}</span>`).join("")
     + `<span>🐋 whale bin</span><span>🦈 shark bin</span>`;
 }
 
@@ -347,7 +408,8 @@ function tradeFetchers(c){
   };
 }
 
-let books = {}, trades = {}, today = null, lastAt = null, busy = false, loadId = 0;
+let hoverIdx = null;
+let books = {}, trades = {}, today = null, todayRaw = null, lastAt = null, busy = false, loadId = 0;
 const seen = new Map();   // wall persistence: key -> {count, price}
 
 async function refresh(){
@@ -364,7 +426,7 @@ async function refresh(){
     if(my!==loadId || c!==coin) return;   // coin changed while loading
     const nb = {};
     res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
-    books = nb; trades = tr; today = td; lastAt = new Date();
+    books = nb; trades = tr; todayRaw = td; today = deriveToday(td); lastAt = new Date();
     trackPersistence();
     render();
   } finally {
@@ -374,7 +436,7 @@ async function refresh(){
 function switchCoin(c){
   coin = c; store.coin = c; save();
   enabled = new Set(per(c).venues);
-  books = {}; trades = {}; today = null; lastAt = null; seen.clear();
+  books = {}; trades = {}; today = null; todayRaw = null; lastAt = null; seen.clear();
   for(const k in status) delete status[k];
   loadId++; busy = false;
   renderCoins(); fillControls(); render(); renderAlerts();
@@ -384,13 +446,15 @@ function switchCoin(c){
 // ---------- analysis ----------
 function midOf(b){ return b && b.bids.length && b.asks.length ? (b.bids[0][0]+b.asks[0][0])/2 : null; }
 function refMid(){
-  for(const id of ["binance","coinbase","binancef","okx","bybit","kraken"]){ const m = midOf(books[id]); if(m) return m; }
+  const order = market==="perp" ? ["binancef","bybit"] : market==="spot" ? ["binance","coinbase","okx","kraken"] : ["binance","coinbase","binancef","okx","bybit","kraken"];
+  for(const id of order){ const m = midOf(books[id]); if(m) return m; }
   return null;
 }
-function levelsInRange(mid, range){
+function levelsInRange(mid, range, everyVenue){
   const out = [];
   for(const id of Object.keys(books)){
-    if(!enabled.has(id)) continue;
+    if(!enabled.has(id) && !everyVenue) continue;
+    if(!everyVenue && !inMarket(id)) continue;
     const b = books[id];
     for(const [p,q] of b.bids) if(p>=mid*(1-range) && p<=mid) out.push({ex:id,side:"bid",p,q});
     for(const [p,q] of b.asks) if(p<=mid*(1+range) && p>=mid) out.push({ex:id,side:"ask",p,q});
@@ -399,7 +463,7 @@ function levelsInRange(mid, range){
 }
 function trackPersistence(){
   const s = settings(); const mid = refMid(); if(!mid) return;
-  const walls = levelsInRange(mid, s.range).filter(l=>l.q>=s.shark);
+  const walls = levelsInRange(mid, s.range, true).filter(l=>l.q>=s.shark);
   const next = new Map();
   for(const w of walls){
     let prevCount = 0;
@@ -416,6 +480,7 @@ function seenCount(l){ const v = seen.get(l.ex+"|"+l.side+"|"+l.p); return v?v.c
 function render(){
   renderVenues();
   renderToday();
+  renderDiv();
   const s = settings(), U = coin;
   $("stamp").textContent = lastAt ? "Updated "+lastAt.toLocaleTimeString("en-GB") : "Not loaded yet";
   const mid = refMid();
@@ -449,7 +514,7 @@ function render(){
   const chip=(label,val,sub,color)=>`<div class="chip"><small>${label}</small><b style="${color?`color:${color}`:""}">${val}</b><div class="sub">${sub}</div></div>`;
   const premAbs = prem==null?"":(Math.abs(prem)>=10?Math.abs(prem).toFixed(0):Math.abs(prem).toFixed(Math.abs(prem)>=1?2:3));
   $("chips").innerHTML =
-    chip(U+" mid price", "$"+fmtP(mid), Object.keys(books).length+" venues live") +
+    chip(U+" mid price", "$"+fmtP(mid), Object.keys(books).filter(inMarket).length+" venues live") +
     chip("Imbalance ±1%", pct(imb(b1,a1)), fmtQ(b1)+" bid / "+fmtQ(a1)+" ask "+U, imb(b1,a1)>=0?"var(--bid)":"var(--ask)") +
     chip("Imbalance ±"+(s.range*100)+"%", pct(imb(bR,aR)), fmtQ(bR)+" bid / "+fmtQ(aR)+" ask "+U, imb(bR,aR)>=0?"var(--bid)":"var(--ask)") +
     chip("Biggest bid bin", topBid?"$"+fmtP(topBid.price):"—", topBid?fmtQ(topBid.total)+" "+U+" · "+pct((topBid.price-mid)/mid):"", "var(--bid)") +
@@ -481,7 +546,7 @@ function render(){
 
   // prints
   const all = [];
-  for(const [ex,list] of Object.entries(trades)) if(enabled.has(ex)) list.forEach(t=>all.push({...t,ex}));
+  for(const [ex,list] of Object.entries(trades)) if(enabled.has(ex) && inMarket(ex)) list.forEach(t=>all.push({...t,ex}));
   const big = all.filter(t=>t.q>=s.print).sort((a,b)=>b.t-a.t);
   const buy = big.filter(t=>t.side==="buy").reduce((a,t)=>a+t.q,0), sell = big.filter(t=>t.side==="sell").reduce((a,t)=>a+t.q,0);
   const tot = buy+sell;
@@ -499,6 +564,27 @@ function render(){
 }
 
 // ---------- today's buying vs selling ----------
+function deriveToday(raw){
+  if(!raw) return null;
+  const start = raw.start;
+  const parts = market==="spot" ? [raw.spot] : market==="perp" ? [raw.perp] : [raw.spot, raw.perp];
+  const ok = parts.filter(Boolean);
+  if(!ok.length) return {error:true, start};
+  const bars = new Map();
+  ok.forEach((arr,idx)=>arr.forEach(k=>{
+    const b = bars.get(k.t) || {t:k.t, buy:0, sell:0, close:k.close};
+    b.buy += k.buy; b.sell += k.sell;
+    if(idx===0) b.close = k.close;   // overview uses the spot price
+    bars.set(k.t,b);
+  }));
+  const list = [...bars.values()].sort((a,b)=>a.t-b.t);
+  let cvd = 0; list.forEach(b=>{ cvd += b.buy-b.sell; b.cvd = cvd; });
+  const hours = [];
+  list.forEach(b=>{ const h = Math.floor((b.t-start)/3600000); if(!hours[h]) hours[h]={h, t:start+h*3600000, buy:0, sell:0}; hours[h].buy+=b.buy; hours[h].sell+=b.sell; });
+  for(let i=0;i<hours.length;i++) if(!hours[i]) hours[i]={h:i,t:start+i*3600000,buy:0,sell:0};
+  hours.forEach(h=>h.net=h.buy-h.sell);
+  return {list, hours, start};
+}
 async function loadToday(c){
   const C = COINS[c];
   const mid = new Date(); mid.setHours(0,0,0,0);
@@ -507,34 +593,141 @@ async function loadToday(c){
     "https://api.binance.com/api/v3/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start,
     "https://fapi.binance.com/fapi/v1/klines?symbol="+C.bn+"&interval=5m&limit=288&startTime="+start
   ];
+  urls.push("https://fapi.binance.com/futures/data/openInterestHist?symbol="+C.bn+"&period=5m&limit=300");
+  urls.push("https://fapi.binance.com/fapi/v1/premiumIndex?symbol="+C.bn);
   const res = await Promise.allSettled(urls.map(u=>getJSON(u)));
-  const bars = new Map(); let sources = 0;
-  res.forEach((r,idx)=>{
-    if(r.status!=="fulfilled" || !Array.isArray(r.value)) return;
-    sources++;
-    r.value.forEach(k=>{
-      const t=k[0], vol=+k[5], buy=+k[9];
-      const b = bars.get(t) || {t, buy:0, sell:0, close:+k[4]};
-      b.buy += buy; b.sell += vol-buy;
-      if(idx===0 || !bars.has(t)) b.close = +k[4];   // spot price preferred
-      bars.set(t,b);
-    });
-  });
-  if(!sources) return {error:true, start};
-  const list = [...bars.values()].sort((a,b)=>a.t-b.t);
-  let cvd = 0; list.forEach(b=>{ cvd += b.buy-b.sell; b.cvd = cvd; });
-  // hourly net
-  const hours = [];
-  list.forEach(b=>{ const h = Math.floor((b.t-start)/3600000); if(!hours[h]) hours[h]={h, t:start+h*3600000, buy:0, sell:0}; hours[h].buy+=b.buy; hours[h].sell+=b.sell; });
-  for(let i=0;i<hours.length;i++) if(!hours[i]) hours[i]={h:i,t:start+i*3600000,buy:0,sell:0};
-  hours.forEach(h=>h.net=h.buy-h.sell);
-  return {list, hours, start, sources};
+  const parse = r => (r.status==="fulfilled" && Array.isArray(r.value)) ? r.value.map(k=>({t:k[0], buy:+k[9], sell:+k[5]-(+k[9]), close:+k[4]})) : null;
+  const oi = (res[2].status==="fulfilled" && Array.isArray(res[2].value)) ? res[2].value.map(o=>({t:+o.timestamp, v:+o.sumOpenInterest})).filter(o=>o.v>0).sort((a,b)=>a.t-b.t) : null;
+  const funding = (res[3].status==="fulfilled" && res[3].value && res[3].value.lastFundingRate!=null) ? +res[3].value.lastFundingRate : null;
+  return {start, spot:parse(res[0]), perp:parse(res[1]), oi, funding};
 }
-let hoverIdx = null;
+// ---------- spot vs perps ----------
+const WINS = {h1:{label:"1h", bars:12, p:0.3, oi:0.5}, h4:{label:"4h", bars:48, p:0.6, oi:1}, day:{label:"Today", bars:0, p:1, oi:2}};
+let divWin = WINS[store.divWin] ? store.divWin : "h1";
+function classify(x, k){
+  const I = 0.03;
+  const sB=x.sImb>=I, sS=x.sImb<=-I, pB=x.pImb>=I, pS=x.pImb<=-I;
+  const up=x.dP>=k.p, dn=x.dP<=-k.p;
+  const oiUp = x.dOI!=null && x.dOI>=k.oi, oiDn = x.dOI!=null && x.dOI<=-k.oi;
+  if(pB && sS) return {code:"distribution", tone:"warn", icon:"⚠", title:"Spot selling into perp buying",
+    meaning: oiUp ? "Spot holders are selling to new leveraged longs (open interest rising). This is the classic exit-liquidity pattern." : "Spot holders are selling while perp traders buy. Leveraged buyers are giving spot sellers a way out.",
+    watch: "If price stalls or slips, those longs can be forced out quickly. Be careful chasing bounces."};
+  if(sB && pS) return {code:"absorption", tone:"up", icon:"🧲", title:"Spot buying while perps sell",
+    meaning: oiUp ? "Real buyers are soaking up new leveraged shorts (open interest rising). Shorts are crowding in against spot demand." : "Real buyers are absorbing the selling on perps.",
+    watch: oiUp ? "Squeeze risk upward: if price holds or ticks up, those shorts may have to buy back." : "Usually supportive for price. Watch for perps to flip to buying."};
+  if(sB && pB) return {code:"broad_buy", tone:"good", icon:"✅", title:"Spot and perps both buying",
+    meaning: "Buyers agree across both markets.",
+    watch: up ? "The healthiest kind of rise. Watch funding: if it climbs high, longs are getting crowded." : "Buying without much price progress: someone is selling passively into it."};
+  if(sS && pS) return {code:"broad_sell", tone:"bad", icon:"🔻", title:"Spot and perps both selling",
+    meaning: "Sellers agree across both markets.",
+    watch: dn ? "Broad selling. Bounces tend to be weak until one side turns." : "Selling without much price drop: someone is buying passively underneath."};
+  if(pB && up){
+    if(oiDn) return {code:"short_squeeze", tone:"warn", icon:"🩳", title:"Short squeeze",
+      meaning: "Price is rising on perp buying while open interest falls: shorts are closing, not new demand arriving.",
+      watch: "Squeezes often run out once the shorts are done. Check whether spot joins in."};
+    return {code:"leverage_long", tone:"warn", icon:"🎢", title:"Perp-led rise",
+      meaning: oiUp ? "Price is rising on new leveraged longs, with little spot support." : "Price is rising on perp buying, with little spot support.",
+      watch: "Leverage-led moves fade more often than spot-led ones. Watch for spot to confirm, or for funding to spike."};
+  }
+  if(sB && up) return {code:"spot_rally", tone:"good", icon:"🟢", title:"Spot-led rise",
+    meaning: "Real coins are being bought; perps are not the ones driving it.", watch: "Spot-led moves tend to hold better than leverage-led ones."};
+  if(pS && dn){
+    if(oiDn) return {code:"long_flush", tone:"bad", icon:"🌊", title:"Long flush",
+      meaning: "Price is falling on perp selling while open interest drops: longs are closing or being liquidated.",
+      watch: "Flushes often end sharply. Spot buying stepping in afterwards is a classic sign the selling is done."};
+    if(oiUp) return {code:"shorts_piling", tone:"up", icon:"🐻", title:"Shorts piling in",
+      meaning: "Price is falling on perp selling while open interest rises: new shorts are opening.",
+      watch: "If spot holds firm, crowded shorts can get squeezed later."};
+    return {code:"perp_drop", tone:"bad", icon:"🔻", title:"Perp-led drop", meaning: "Price is falling on perp selling, with spot not doing much.", watch: "Watch open interest: falling means a flush, rising means shorts building."};
+  }
+  if(sS && dn) return {code:"spot_drop", tone:"bad", icon:"🔴", title:"Spot-led drop",
+    meaning: "Real coins are being sold.", watch: "Spot-led selling is harder to reverse than a leverage flush."};
+  return {code:"mixed", tone:"neutral", icon:"·", title:"No clear signal",
+    meaning: "Spot and perps are not pulling strongly in either direction.", watch: "Nothing to act on from this panel right now."};
+}
+function divData(raw, from, to){
+  // from/to: bar start times (inclusive/exclusive)
+  const pick = arr => (arr||[]).filter(b=>b.t>=from && b.t<to);
+  const S = pick(raw.spot), P = pick(raw.perp);
+  if(!S.length || !P.length) return null;
+  const sum = (a,k)=>a.reduce((x,b)=>x+b[k],0);
+  const sB=sum(S,"buy"), sS=sum(S,"sell"), pB=sum(P,"buy"), pS=sum(P,"sell");
+  const before = (raw.spot||[]).filter(b=>b.t<from);
+  const p0 = before.length ? before[before.length-1].close : S[0].close, p1 = S[S.length-1].close;
+  let dOI = null;
+  if(raw.oi && raw.oi.length){
+    const o0 = [...raw.oi].reverse().find(o=>o.t<=from) || raw.oi.find(o=>o.t>=from);
+    const end = to; const o1 = [...raw.oi].reverse().find(o=>o.t<=end);
+    if(o0 && o1 && o1.t>o0.t) dOI = (o1.v-o0.v)/o0.v*100;
+  }
+  // how in-step the two markets are, bar by bar
+  const pm = new Map(P.map(b=>[b.t,b.buy-b.sell]));
+  const xs=[], ys=[]; S.forEach(b=>{ if(pm.has(b.t)){ xs.push(b.buy-b.sell); ys.push(pm.get(b.t)); } });
+  let corr = null;
+  if(xs.length>=4){
+    const mx=xs.reduce((a,v)=>a+v,0)/xs.length, my=ys.reduce((a,v)=>a+v,0)/ys.length;
+    let sxy=0,sxx=0,syy=0; for(let i=0;i<xs.length;i++){ const a=xs[i]-mx, b=ys[i]-my; sxy+=a*b; sxx+=a*a; syy+=b*b; }
+    corr = (sxx>0 && syy>0) ? sxy/Math.sqrt(sxx*syy) : null;
+  }
+  return { sImb:(sB-sS)/((sB+sS)||1), pImb:(pB-pS)/((pB+pS)||1), sNet:sB-sS, pNet:pB-pS, dP:(p1-p0)/p0*100, p1, dOI, corr, n:S.length };
+}
+const pctS = (v,d=1)=> v==null||isNaN(v) ? "—" : (v>=0?"+":"−")+Math.abs(v).toFixed(d)+"%";
+const cls = v=> v==null ? "" : v>=0 ? "pos" : "neg";
+function renderDivWin(){
+  $("divWin").innerHTML = "";
+  Object.keys(WINS).forEach(k=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=WINS[k].label; b.setAttribute("aria-pressed", k===divWin?"true":"false");
+    b.addEventListener("click",()=>{ divWin=k; store.divWin=k; save(); renderDivWin(); renderDiv(); });
+    $("divWin").append(b);
+  });
+}
+function renderDiv(){
+  $("divTitle").textContent = coin+" spot vs perps · who is driving?";
+  const raw = todayRaw;
+  if(!raw || !raw.spot || !raw.perp || !raw.spot.length || !raw.perp.length){
+    $("divNow").className="read neutral"; $("divNow").innerHTML = raw ? "<b>Needs both Binance spot and perp data</b><p class='w'>One of them didn't load. Press Refresh to try again.</p>" : "<b>Loading…</b>";
+    $("divStats").innerHTML=""; $("divHours").innerHTML='<div class="empty">—</div>'; return;
+  }
+  const W = WINS[divWin], last = raw.spot[raw.spot.length-1].t;
+  const from = W.bars ? last - (W.bars-1)*300000 : raw.start, to = last + 1;
+  const d = divData(raw, from, to);
+  if(!d){ $("divNow").innerHTML="<b>Not enough data yet</b>"; return; }
+  const r = classify(d, W);
+  let fund = "";
+  if(raw.funding!=null){
+    if(raw.funding >= 0.0003) fund = " Funding is high: longs are paying a lot to stay in, so the long side is crowded.";
+    else if(raw.funding <= -0.0001) fund = " Funding is negative: shorts are paying, so the short side is crowded.";
+  }
+  $("divNow").className = "read "+r.tone;
+  $("divNow").innerHTML = `<b>${r.icon} ${esc(r.title)}</b><p>${esc(r.meaning)}${esc(fund)}</p><p class="w">What to watch: ${esc(r.watch)}</p>`;
+  const corrTxt = d.corr==null ? "—" : (d.corr>=0?"+":"−")+Math.abs(d.corr).toFixed(2);
+  const corrSub = d.corr==null ? "not enough bars" : d.corr>=0.5 ? "moving together" : d.corr>=0.15 ? "loosely together" : d.corr>-0.15 ? "unrelated" : "pulling apart";
+  const stat=(label,val,sub,c)=>`<div class="stat"><small>${label}</small><b class="${c||""}">${val}</b><span>${sub}</span></div>`;
+  $("divStats").innerHTML =
+    stat("Spot imbalance", pctS(d.sImb*100), signed(d.sNet,fmtBig)+" "+coin+" net", cls(d.sImb)) +
+    stat("Perp imbalance", pctS(d.pImb*100), signed(d.pNet,fmtBig)+" "+coin+" net", cls(d.pImb)) +
+    stat("Price", pctS(d.dP,2), "$"+fmtP(d.p1), cls(d.dP)) +
+    stat("Open interest", pctS(d.dOI,2), d.dOI==null ? "didn't load" : d.dOI>=0 ? "new positions opening" : "positions closing", "") +
+    stat("Funding (8h)", raw.funding==null ? "—" : (raw.funding*100).toFixed(4)+"%", raw.funding==null ? "didn't load" : raw.funding>=0.0003 ? "high: longs crowded" : raw.funding<=-0.0001 ? "negative: shorts crowded" : "normal", raw.funding==null?"":raw.funding>=0?"pos":"neg") +
+    stat("In step", corrTxt, corrSub, "");
+  // hour by hour, newest first
+  const rows = [];
+  const lastHour = Math.floor((last-raw.start)/3600000);
+  for(let h=lastHour; h>=0; h--){
+    const f = raw.start+h*3600000, t = f+3600000;
+    const x = divData(raw, f, t); if(!x) continue;
+    const nx = divData(raw, t, t+3600000);
+    const rr = classify(x, WINS.h1);
+    const hl = (String(new Date(f).getHours())).padStart(2,"0")+":00";
+    rows.push(`<tr class="hr1"><td>${hl}${h===lastHour?"<span class='t-neutral'> now</span>":""}</td><td class="r ${cls(x.sImb)}">${pctS(x.sImb*100)}</td><td class="r ${cls(x.pImb)}">${pctS(x.pImb*100)}</td><td class="r">${pctS(x.dOI,1)}</td><td class="r ${cls(x.dP)}">${pctS(x.dP,2)}</td><td class="r ${nx?cls(nx.dP):""}">${nx?pctS(nx.dP,2):"—"}</td></tr><tr class="hr2"><td colspan="6" class="t-${rr.tone}">${rr.icon} ${esc(rr.title)}</td></tr>`);
+  }
+  $("divHours").innerHTML = rows.length ? `<table><thead><tr><th>Hour</th><th class="r">Spot</th><th class="r">Perp</th><th class="r">OI</th><th class="r">Price</th><th class="r">Next hr</th></tr></thead><tbody>${rows.join("")}</tbody></table>` : '<div class="empty">—</div>';
+}
+
 function renderToday(){
   const box = $("today"), U = coin;
   if(!today){ box.innerHTML = `<div class="empty">Loading today's buying and selling…</div>`; $("readout").innerHTML=""; drawChart(); return; }
-  if(today.error || !today.list.length){ box.innerHTML = `<div class="empty err">Couldn't load today's figures from Binance.</div>`; $("readout").innerHTML=""; drawChart(); return; }
+  if(today.error || !today.list.length){ box.innerHTML = `<div class="empty err">Couldn't load today's figures from Binance${market==="perp"?" perps":market==="spot"?" spot":""}.</div>`; $("readout").innerHTML=""; drawChart(); return; }
   const L = today.list;
   const buy = L.reduce((a,b)=>a+b.buy,0), sell = L.reduce((a,b)=>a+b.sell,0), net = buy-sell;
   const last = L[L.length-1], prev = L.slice(-13,-1);
@@ -659,10 +852,20 @@ $("cvd").addEventListener("pointerleave", ()=>{ hoverIdx=null; drawChart(); });
 function syncNative(){
   if(!NATIVE) return;
   const coins = {};
-  ["BTC","ETH","SOL"].forEach(c=>{ const p=per(c); coins[c]={on:!!p.on, whale:+p.whale, exec:+p.exec, minNet:+p.minNet}; });
-  try{ Android.setSettings(JSON.stringify({ coins, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
+  ["BTC","ETH","SOL"].forEach(c=>{ const p=per(c); coins[c]={on:!!p.on, whale:+p.whale, execSpot:+p.execSpot, execPerp:+p.execPerp, netSpot:+p.netSpot, netPerp:+p.netPerp}; });
+  try{ Android.setSettings(JSON.stringify({ coins, spotOn: store.spotOn!==false, perpOn: store.perpOn!==false, sigOn: store.sigOn!==false, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
+}
+function renderWatchMarkets(){
+  const w = $("watchMk"); w.innerHTML = "<span>Markets:</span>";
+  [["spotOn","Spot"],["perpOn","Perps"],["sigOn","Spot vs perp signals"]].forEach(([k,label])=>{
+    const lab=document.createElement("label"), cb=document.createElement("input");
+    cb.type="checkbox"; cb.id="w_"+k; cb.checked = store[k]!==false;
+    cb.addEventListener("change",()=>{ store[k]=cb.checked; save(); syncNative(); renderAlerts(); });
+    lab.append(cb, document.createTextNode(label)); w.append(lab);
+  });
 }
 function renderWatch(){
+  renderWatchMarkets();
   if(!NATIVE) return;
   const w = $("watch"); w.innerHTML = "<span>Alert me for:</span>";
   ["BTC","ETH","SOL"].forEach(c=>{
@@ -678,7 +881,8 @@ function renderAlerts(){
   const watching = ["BTC","ETH","SOL"].filter(c=>per(c).on);
   $("alertToggle").textContent = on ? "Alerts on · tap to stop" : "Turn alerts on";
   $("alertToggle").classList.toggle("on", on);
-  $("alertState").textContent = on ? (watching.length? "Watching "+watching.join(", ")+" every "+$("interval").value+"s, even with the screen locked" : "On, but no coins ticked below") : "Off";
+  const mk = [store.spotOn!==false?"spot":"", store.perpOn!==false?"perps":"", store.sigOn!==false?"signals":""].filter(Boolean).join(" + ");
+  $("alertState").textContent = on ? (!watching.length ? "On, but no coins ticked below" : !mk ? "On, but nothing is ticked under Markets" : "Watching "+watching.join(", ")+" "+mk+" every "+$("interval").value+"s, even with the screen locked") : "Off";
   let list=[]; try{ list = JSON.parse(Android.getAlerts()||"[]"); }catch(e){}
   $("alertList").innerHTML = list.length ? list.map(a=>`<div class="alert ${esc(a.kind||"")}"><b>${esc(a.title)}</b><span>${new Date(a.t).toLocaleTimeString("en-GB")} · ${esc(a.text)}</span></div>`).join("")
     : `<div class="empty">No alerts yet.</div>`;
@@ -698,7 +902,7 @@ if(NATIVE){
 function numInput(id, key){
   $(id).addEventListener("change",()=>{ const v=parseFloat($(id).value); if(!(v>0)){ $(id).value = per(coin)[key]; return; } per(coin)[key]=v; save(); syncNative(); trackPersistence(); render(); });
 }
-numInput("shark","shark"); numInput("whale","whale"); numInput("print","print"); numInput("exec","exec"); numInput("minNet","minNet");
+numInput("shark","shark"); numInput("whale","whale"); numInput("print","print"); ["execSpot","execPerp","netSpot","netPerp"].forEach(k=>numInput(k,k));
 $("bin").addEventListener("change",()=>{ per(coin).bin=+$("bin").value; save(); render(); });
 $("range").addEventListener("change",()=>{ store.range=+$("range").value; save(); syncNative(); render(); });
 $("accel").addEventListener("change",()=>{ store.accel=+$("accel").value; save(); syncNative(); renderToday(); });
@@ -709,7 +913,7 @@ $("refresh").addEventListener("click", refresh);
 $("auto").addEventListener("change", ()=>{ store.auto=+$("auto").value; save(); setAuto(); });
 let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(drawChart,150); });
 
-renderCoins(); fillControls(); render(); renderAlerts(); setAuto(); refresh();
+renderCoins(); renderMarkets(); renderDivWin(); fillControls(); render(); renderAlerts(); setAuto(); refresh();
 })();
 </script>
 </body>
