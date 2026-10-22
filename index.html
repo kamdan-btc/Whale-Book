@@ -748,7 +748,7 @@ async function loadToday(c){
           oiSeries: series.filter(x=>x.length).map(x=>x.filter(o=>o.v>0)), oiNames:[bnOI?"Binance":null, byOI?"Bybit":null, okOI?"OKX":null].filter(Boolean), funding};
 }
 // ---------- spot vs perps ----------
-const WINS = {h1:{label:"1h", bars:12, p:0.3, oi:0.5}, h4:{label:"4h", bars:48, p:0.6, oi:1}, day:{label:"Today", bars:0, p:1, oi:2}};
+const WINS = {h1:{label:"1h", bars:12, p:0.25, oi:0.5}, h4:{label:"4h", bars:48, p:0.5, oi:1}, day:{label:"Today", bars:0, p:0.8, oi:2}};
 let divWin = WINS[store.divWin] ? store.divWin : "h1";
 function classify(x, k){
   const I = 0.03;
@@ -788,6 +788,19 @@ function classify(x, k){
   }
   if(sS && dn) return {code:"spot_drop", tone:"bad", icon:"🔴", title:"Spot-led drop",
     meaning: "Real coins are being sold.", watch: "Spot-led selling is harder to reverse than a leverage flush."};
+  // one market pushing hard while price barely moves: someone is absorbing it with resting orders
+  if(sS) return {code:"spot_sell_absorbed", tone:"warn", icon:"🧱", title:"Heavy spot selling, price holding",
+    meaning: "Real coins are being sold, but price is barely falling: buyers are soaking it up with resting orders." + (oiDn ? " Open interest is falling too, so traders are closing positions rather than betting." : ""),
+    watch: "If those bids get pulled or run out, price can drop quickly. If the selling dries up while price holds, it is a sign of a floor."};
+  if(sB) return {code:"spot_buy_absorbed", tone:"up", icon:"🧱", title:"Heavy spot buying, price not moving yet",
+    meaning: "Real coins are being bought, but price is barely rising: sellers are soaking it up with resting orders.",
+    watch: "If those sellers run out, price can move up quickly. If the buying fades first, the move may not come."};
+  if(pB) return {code:"perp_buy_stalled", tone:"warn", icon:"🎯", title:"Perp buying, price not responding",
+    meaning: "Leveraged buyers are pushing, but price is not rising." + (oiUp ? " Open interest is rising, so new longs are piling in." : ""),
+    watch: "Longs that cannot move price are exposed. If price slips, they can be flushed."};
+  if(pS) return {code:"perp_sell_stalled", tone:"up", icon:"🎯", title:"Perp selling, price holding",
+    meaning: "Leveraged sellers are pushing, but price is not falling." + (oiUp ? " Open interest is rising, so new shorts are piling in." : ""),
+    watch: "Shorts that cannot push price down are exposed. If price lifts, they can be squeezed."};
   return {code:"mixed", tone:"neutral", icon:"·", title:"No clear signal",
     meaning: "Spot and perps are not pulling strongly in either direction.", watch: "Nothing to act on from this panel right now."};
 }
