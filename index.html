@@ -122,10 +122,24 @@ td.r,th.r{text-align:right}
 .read.up{border-left-color:var(--price)} .read.up b{color:var(--price)}
 .t-warn{color:var(--accent)} .t-bad{color:var(--ask)} .t-good{color:var(--bid)} .t-up{color:var(--price)} .t-neutral{color:var(--muted)}
 .pos{color:var(--bid)} .neg{color:var(--ask)}
+/* history tab */
+#histCard{display:none}
+body.hist #histCard{display:block}
+body.hist .controls, body.hist #chips, body.hist #todayCard, body.hist #alertsCard, body.hist .grid, body.hist #divCard, body.hist #mainNote{display:none !important}
+.monthbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.monthbar b{font:600 20px/1 var(--display);min-width:9ch;text-align:center}
+.monthbar .grow{flex:1}
+#histChart{width:100%;height:230px;display:block}
+#histTable table{font-size:11.5px}
+#histTable th,#histTable td{padding:4px 5px}
+#histTable tr.h1 td{border-bottom:0;padding-bottom:1px;vertical-align:top}
+#histTable td small{display:block;font-size:10.5px;opacity:.85}
+#histTable tr.h2 td{padding-top:0;padding-bottom:7px;font-size:12px;white-space:normal}
+.dl{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
 #divHours table{font-size:11.5px}
 #divHours th,#divHours td{padding:4px 5px}
 #divHours tr.hr1 td{border-bottom:0;padding-bottom:1px}
-#divHours tr.hr2 td{padding-top:0;padding-bottom:7px;font-size:12px}
+#divHours tr.hr2 td{padding-top:0;padding-bottom:7px;font-size:12px;white-space:normal}
 .alert.perp{border-left:3px solid var(--line);padding-left:9px}
 </style>
 </head>
@@ -182,17 +196,19 @@ td.r,th.r{text-align:right}
   </div>
   <div class="watch" id="watch"><span>Alert me for:</span></div>
   <div class="watch" id="watchMk"><span>Markets:</span></div>
+  <div class="watch" id="watchWalls"><span>Walls:</span></div>
   <div class="alertSet">
     <label for="execSpot"><span class="u">Big spot order ≥ BTC</span><input id="execSpot" type="number" min="0" step="any"></label>
     <label for="execPerp"><span class="u">Big perp order ≥ BTC</span><input id="execPerp" type="number" min="0" step="any"></label>
     <label for="netSpot"><span class="u">Spot 5-min net ≥ BTC</span><input id="netSpot" type="number" min="0" step="any"></label>
     <label for="netPerp"><span class="u">Perp 5-min net ≥ BTC</span><input id="netPerp" type="number" min="0" step="any"></label>
     <label for="accel">Pace alert at ×<input id="accel" type="number" min="1.5" step="0.5" value="3"></label>
+    <label for="wallMin">Wall must stay (min)<input id="wallMin" type="number" min="1" step="1" value="5"></label>
     <label for="interval">Check every
       <select id="interval"><option value="30">30s</option><option value="60" selected>60s</option><option value="120">2 min</option></select>
     </label>
   </div>
-  <p class="note" style="margin:6px 0 10px">The size boxes apply to the coin selected at the top. Wall alerts use that coin's Whale size and the Range above. A new wall must stay for two checks before it alerts.</p>
+  <p class="note" style="margin:6px 0 10px">The size boxes apply to the coin selected at the top. Wall alerts use that coin's Whale size and the Range above. A wall only counts once it has stayed for the minutes you set, so spoofs that flicker on and off never alert. Then you only hear about four things: 🐋 a new wall that has stayed, 🛡 price tested it and it held, 💥 price broke through it, 👻 it vanished just as price got close (within 0.25%). Walls pulled while price is far away, or that just drift out of range, stay quiet. The same wall won't alert again for 30 minutes.</p>
   <div class="alertTop">
     <button type="button" id="battBtn">Allow running in background</button>
     <button type="button" id="appSetBtn">App settings</button>
@@ -238,7 +254,33 @@ td.r,th.r{text-align:right}
   <p class="note" style="margin:10px 0 0">Spot = Binance (USDT, USDC and FDUSD pairs) + OKX (all spot pairs). Perps = Binance (USDT, USDC and coin-margined) + OKX (all derivatives). Open interest adds Binance, Bybit and OKX. Imbalance = net market buying as a share of that market's volume, so spot and perps can be compared fairly. Open interest = total open perp positions: rising means new bets are being opened, falling means positions are closing. These reads describe who is driving price and how fragile the move is. They are not predictions. Use the "Next hr" column to see how often each read was followed by the move it hints at.</p>
 </div>
 
-<p class="note" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance, Bybit and Bitfinex perps) are where most leverage sits. Bitfinex levels are grouped to 4 significant figures (for example $10 steps on BTC) and Hyperliquid levels to wider steps ($100 on BTC), because those exchanges only share a limited number of levels for free. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
+<div class="card block" id="histCard">
+  <h2 id="histTitle">BTC history · daily market orders</h2>
+  <div class="coins winsel" id="histMode" role="group" aria-label="History source"></div>
+  <div class="monthbar">
+    <button type="button" id="histPrev" aria-label="Previous month">◀</button>
+    <b id="histMonth">—</b>
+    <button type="button" id="histNext" aria-label="Next month">▶</button>
+    <span class="grow"></span>
+    <button type="button" id="histNow">This month</button>
+  </div>
+  <div class="today" id="histSum"></div>
+  <div class="chartwrap"><canvas id="histChart" aria-label="Daily price with spot and perp net buying"></canvas></div>
+  <div class="legend" style="margin-top:8px">
+    <span><i style="background:var(--price)"></i>Close price</span>
+    <span><i style="background:var(--bid)"></i><i style="background:var(--ask)"></i>Spot net (solid)</span>
+    <span><i style="background:var(--bid);opacity:.45"></i><i style="background:var(--ask);opacity:.45"></i>Perp net (faded)</span>
+  </div>
+  <div class="dl">
+    <button type="button" id="dlMonth">Download this month (CSV)</button>
+    <button type="button" id="dlYear">Download last 12 months (CSV)</button>
+    <span class="stamp" id="dlMsg"></span>
+  </div>
+  <div class="tbl" id="histTable"><div class="empty">—</div></div>
+  <p class="note" id="histNote" style="margin:10px 0 0"></p>
+</div>
+
+<p class="note" id="mainNote" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance, Bybit and Bitfinex perps) are where most leverage sits. Bitfinex levels are grouped to 4 significant figures (for example $10 steps on BTC) and Hyperliquid levels to wider steps ($100 on BTC), because those exchanges only share a limited number of levels for free. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
 
 <script>
 (function(){
@@ -266,9 +308,9 @@ const VENUES = [
   {id:"hyper",    name:"Hyperliquid perp", color:"#5ee6c8"}
 ];
 const SPOT = new Set(["binance","coinbase","kraken","okx","bitfinex","bybits"]), PERP = new Set(["binancef","bybit","bitfinexf","okxf","hyper"]);
-const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps"};
+const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps", history:"History"};
 let market = "all";
-function inMarket(id){ return market==="all" || (market==="spot" ? SPOT.has(id) : PERP.has(id)); }
+function inMarket(id){ return market==="all" || market==="history" || (market==="spot" ? SPOT.has(id) : PERP.has(id)); }
 const VCOL = Object.fromEntries(VENUES.map(v=>[v.id,v.color]));
 const VNAME = Object.fromEntries(VENUES.map(v=>[v.id,v.name]));
 const $ = id=>document.getElementById(id);
@@ -305,6 +347,9 @@ if(NATIVE){
     if(ns.spotOn!=null) store.spotOn = !!ns.spotOn;
     if(ns.perpOn!=null) store.perpOn = !!ns.perpOn;
     if(ns.sigOn!=null) store.sigOn = !!ns.sigOn;
+    if(ns.wallsOn!=null) store.wallsOn = !!ns.wallsOn;
+    if(ns.wallsGrouped!=null) store.wallsGrouped = !!ns.wallsGrouped;
+    if(ns.wallMin!=null) store.wallMin = +ns.wallMin;
     if(ns.accel!=null) store.accel = +ns.accel;
     if(ns.interval!=null) store.interval = +ns.interval;
   }catch(e){}
@@ -347,7 +392,16 @@ function renderMarkets(){
   $("markets").innerHTML = "";
   Object.keys(MARKETS).forEach(m=>{
     const b=document.createElement("button"); b.type="button"; b.textContent=MARKETS[m]; b.setAttribute("aria-pressed", m===market?"true":"false");
-    b.addEventListener("click",()=>{ if(m===market) return; market=m; store.market=m; save(); hoverIdx=null; today = deriveToday(todayRaw); renderMarkets(); renderTitles(); render(); });
+    b.addEventListener("click",()=>{
+      if(m===market) return;
+      const wasHist = market==="history";
+      market=m; store.market=m; save(); hoverIdx=null;
+      document.body.classList.toggle("hist", m==="history");
+      renderMarkets();
+      if(m==="history"){ loadHistory(); return; }
+      today = deriveToday(todayRaw); renderTitles(); render();
+      if(wasHist && !lastAt) refresh();
+    });
     $("markets").append(b);
   });
 }
@@ -479,6 +533,7 @@ let books = {}, trades = {}, today = null, todayRaw = null, lastAt = null, busy 
 const seen = new Map();   // wall persistence: key -> {count, price}
 
 async function refresh(){
+  if(market==="history"){ loadHistory(true); return; }
   if(busy) return; busy = true;
   const my = ++loadId, c = coin;
   $("refresh").disabled = true; $("refresh").textContent = "Loading…";
@@ -492,7 +547,7 @@ async function refresh(){
     if(my!==loadId || c!==coin) return;   // coin changed while loading
     const nb = {};
     res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
-    books = nb; trades = tr; todayRaw = td; today = deriveToday(td); lastAt = new Date();
+    books = nb; trades = tr; todayRaw = td; todayCoin = c; today = deriveToday(td); lastAt = new Date();
     renderTitles();
     trackPersistence();
     render();
@@ -503,10 +558,11 @@ async function refresh(){
 function switchCoin(c){
   coin = c; store.coin = c; save();
   enabled = new Set(per(c).venues);
-  books = {}; trades = {}; today = null; todayRaw = null; lastAt = null; seen.clear();
+  books = {}; trades = {}; today = null; todayRaw = null; todayCoin = null; lastAt = null; seen.clear();
   for(const k in status) delete status[k];
   loadId++; busy = false;
   renderCoins(); fillControls(); render(); renderAlerts();
+  if(market==="history"){ loadHistory(); return; }
   refresh();
 }
 
@@ -885,6 +941,328 @@ function renderDiv(){
   $("divHours").innerHTML = rows.length ? `<table><thead><tr><th>Hour</th><th class="r">Spot</th><th class="r">Perp</th><th class="r">OI</th><th class="r">Price</th><th class="r">Next hr</th></tr></thead><tbody>${rows.join("")}</tbody></table>` : '<div class="empty">—</div>';
 }
 
+// ---------- history ----------
+// Two sources:
+//  "ours"    - finished local (UK) days saved by the app/page, using exactly the Today chart's sources:
+//              Binance all pairs + OKX, open interest from Binance + Bybit + OKX. Built day by day.
+//  "archive" - Binance daily candles (all pairs, UTC days), available for years back.
+const HMODES = {ours:"Our data", archive:"Binance archive"};
+let histMode = HMODES[store.histMode] ? store.histMode : "ours";
+let histYM = (()=>{ const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()}; })();
+const monthName = ym => new Date(ym.y, ym.m, 1).toLocaleDateString("en-GB",{month:"long", year:"numeric"});
+const daysIn = ym => new Date(ym.y, ym.m+1, 0).getDate();
+const pad2 = n => String(n).padStart(2,"0");
+const localKey = t => { const d=new Date(t); return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); };
+const utcKey = t => new Date(t).toISOString().slice(0,10);
+const ymKey = ym => ym.y+"-"+pad2(ym.m+1);
+
+// shared row shape for both sources
+function makeRow(d){
+  const sV=d.sB+d.sS, pV=d.pB+d.pS;
+  const r = {...d, sV, pV, sNet:d.sB-d.sS, pNet:d.pB-d.pS, sImb: sV?(d.sB-d.sS)/sV:0, pImb: pV?(d.pB-d.pS)/pV:0,
+    chg: d.o ? (d.c-d.o)/d.o*100 : 0, dOI: (d.oi0>0 && d.oi1!=null) ? (d.oi1-d.oi0)/d.oi0*100 : (d.dOI ?? null)};
+  r.read = classify({sImb:r.sImb, pImb:r.pImb, dP:r.chg, dOI:r.dOI}, WINS.day);
+  return r;
+}
+
+// ---- saved days (app storage when inside the app, this browser's storage on the web link) ----
+function getDays(c){
+  try{ return JSON.parse(NATIVE && Android.getDays ? Android.getDays(c) : (localStorage.getItem("wb.days."+c) || "{}")) || {}; }catch(e){ return {}; }
+}
+function putDay(c, date, rec){
+  if(NATIVE && Android.saveDay){ try{ return Android.saveDay(c, date, JSON.stringify(rec)); }catch(e){ return false; } }
+  try{ const all = getDays(c); if(all[date]) return false; all[date] = rec; localStorage.setItem("wb.days."+c, JSON.stringify(all)); return true; }catch(e){ return false; }
+}
+
+// ---- one finished local day, same sources and arithmetic as the app's background capture ----
+const unitCache = {};
+async function okxDollars(c, kind){
+  const key = c+"|"+kind, hit = unitCache[key];
+  if(hit && Date.now()-hit.at < 6*3600000) return hit.v;
+  const C = COINS[c], inst = kind==="SPOT" ? C.okx : C.okx+"-SWAP";
+  const [tv, cd] = await Promise.all([
+    getJSON("https://www.okx.com/api/v5/rubik/stat/taker-volume?ccy="+c+"&instType="+kind+"&period=5m&begin="+(Date.now()-2*3600000)),
+    getJSON("https://www.okx.com/api/v5/market/candles?instId="+inst+"&bar=5m&limit=24")
+  ]);
+  const vol = new Map((cd.data||[]).map(k=>[+k[0], kind==="SPOT" ? +k[5] : +k[6]]));
+  const price = cd.data && cd.data[0] ? +cd.data[0][4] : 0;
+  let a=0, b=0; (tv.data||[]).forEach(r=>{ const v=vol.get(+r[0]); if(v!=null){ a+=(+r[1])+(+r[2]); b+=v; } });
+  if(!(b>0 && price>0)) throw new Error("OKX units unknown");
+  const v = a/b > price*0.2;
+  unitCache[key] = {v, at:Date.now()};
+  return v;
+}
+async function computeDay(c, start, end){
+  const C = COINS[c];
+  const SP="https://api.binance.com/api/v3/klines?symbol=", FP="https://fapi.binance.com/fapi/v1/klines?symbol=", DP="https://dapi.binance.com/dapi/v1/klines?symbol=";
+  const usdc = C.bn.replace("USDT","USDC"), fd = C.bn.replace("USDT","FDUSD");
+  const q = "&interval=5m&startTime="+start+"&endTime="+(end-1)+"&limit=300";
+  const expected = Math.round((end-start)/300000);
+  const main = await getJSON(SP+C.bn+q);
+  if(!Array.isArray(main) || main.length < expected*0.95) return null;
+  const close = new Map(); let o=0,h=0,l=Infinity,cl=0,sB=0,sS=0,pB=0,pS=0;
+  main.forEach((k,i)=>{ const oo=+k[1], hh=+k[2], ll=+k[3], cc=+k[4]; if(i===0) o=oo; h=Math.max(h,hh); l=Math.min(l,ll); cl=cc; close.set(+k[0],cc); sB+=+k[9]; sS+=(+k[5])-(+k[9]); });
+  const sum = (u, cm) => getJSON(u+q).then(d=>{ if(!Array.isArray(d)||!d.length) return null; let b=0,s=0; d.forEach(x=>{ const v=+x[cm?7:5], bb=+x[cm?10:9]; b+=bb; s+=v-bb; }); return [b,s]; }).catch(()=>null);
+  const [su, sf, pm, pu, pc] = await Promise.all([sum(SP+usdc), sum(SP+fd), sum(FP+C.bn), sum(FP+usdc), sum(DP+C.bcm, true)]);
+  if(!pm) return null;
+  [su,sf].forEach(x=>{ if(x){ sB+=x[0]; sS+=x[1]; } });
+  [pm,pu,pc].forEach(x=>{ if(x){ pB+=x[0]; pS+=x[1]; } });
+  const okxDay = async kind => {
+    try{
+      const d = await getJSON("https://www.okx.com/api/v5/rubik/stat/taker-volume?ccy="+c+"&instType="+kind+"&period=5m&begin="+start+"&end="+(end-1));
+      const dollars = await okxDollars(c, kind);
+      let b=0, s=0, n=0;
+      (d.data||[]).forEach(r=>{ const t=+r[0]; if(t<start||t>=end) return; const px = dollars ? (close.get(t) ?? cl) : 1; s+=(+r[1])/px; b+=(+r[2])/px; n++; });
+      return n >= expected*0.9 ? [b,s] : null;
+    }catch(e){ return null; }
+  };
+  const [os, op] = await Promise.all([okxDay("SPOT"), okxDay("CONTRACTS")]);
+  const okx = !!(os && op);
+  if(okx){ sB+=os[0]; sS+=os[1]; pB+=op[0]; pS+=op[1]; }
+  // open interest at the start and end of the day, in coins
+  let a=0, b=0;
+  const [bo, by, ok1, okNow, okOne] = await Promise.all([
+    getJSON("https://fapi.binance.com/futures/data/openInterestHist?symbol="+C.bn+"&period=5m&startTime="+start+"&endTime="+end+"&limit=300").catch(()=>null),
+    getJSON("https://api.bybit.com/v5/market/open-interest?category=linear&symbol="+C.by+"&intervalTime=1h&startTime="+start+"&endTime="+end+"&limit=50").catch(()=>null),
+    getJSON("https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy="+c+"&period=1H&begin="+start+"&end="+end).catch(()=>null),
+    getJSON("https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy="+c+"&period=5m&begin="+(Date.now()-3600000)).catch(()=>null),
+    getJSON("https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId="+C.okx+"-SWAP").catch(()=>null)
+  ]);
+  if(Array.isArray(bo) && bo.length>=2){ a+=+bo[0].sumOpenInterest; b+=+bo[bo.length-1].sumOpenInterest; }
+  const bl = by && by.result && by.result.list; if(Array.isArray(bl) && bl.length>=2){ a+=+bl[bl.length-1].openInterest; b+=+bl[0].openInterest; }
+  if(ok1 && Array.isArray(ok1.data)){
+    const rows = ok1.data.map(r=>({t:+r[0], v:+r[1]})).filter(r=>r.t>=start && r.t<=end).sort((x,y)=>x.t-y.t);
+    if(rows.length>=2 && rows[0].v>0){
+      let v0=rows[0].v, v1=rows[rows.length-1].v;
+      const latest = okNow && okNow.data && okNow.data[0] ? +okNow.data[0][1] : 0, one = okOne && okOne.data && okOne.data[0] ? +okOne.data[0].oiCcy : 0;
+      if(one>0 && latest/one > cl*0.2){ v0/= (close.get(rows[0].t) ?? cl); v1/= (close.get(rows[rows.length-1].t) ?? cl); }
+      a+=v0; b+=v1;
+    }
+  }
+  const rec = {start, end, o, h, l, c:cl, sB, sS, pB, pS, okx, src:"page"};
+  if(a>0){ rec.oi0=a; rec.oi1=b; }
+  return rec;
+}
+// Fill in any of the last 3 finished days that aren't saved yet (all coins). Runs quietly in the background.
+let capturing = false, lastCapture = 0;
+async function captureMissingDays(){
+  if(capturing || Date.now()-lastCapture < 20*60000) return;
+  capturing = true; lastCapture = Date.now();
+  try{
+    const today = new Date(); today.setHours(0,0,0,0);
+    for(const c of Object.keys(COINS)){
+      const saved = getDays(c);
+      for(let back=1; back<=3; back++){
+        const s = new Date(today); s.setDate(s.getDate()-back);
+        const e = new Date(today); e.setDate(e.getDate()-back+1);
+        const key = localKey(s.getTime());
+        if(saved[key] || Date.now() < e.getTime()+5*60000) continue;
+        try{ const rec = await computeDay(c, s.getTime(), e.getTime()); if(rec){ rec.date = key; putDay(c, key, rec); } }catch(e){}
+      }
+    }
+  } finally { capturing = false; }
+  if(market==="history" && histMode==="ours") loadHistory();
+}
+
+// ---- rows for the month on screen ----
+function todayLiveRow(){
+  // today so far, from the Overview's Today data (same sources)
+  const raw = todayRaw; if(!raw || !raw.spot || !raw.perp || !raw.spot.length) return null;
+  const sp = raw.spot, pp = raw.perp, sum=(a,k)=>a.reduce((x,b)=>x+b[k],0);
+  let dOI = null;
+  if(raw.oiSeries && raw.oiSeries.length){
+    const at = (sr,t)=>{ let v=null; for(const o of sr){ if(o.t<=t) v=o.v; else break; } return v; };
+    let a=0,b=0; raw.oiSeries.forEach(sr=>{ const v0 = at(sr,raw.start) ?? (sr[0] && sr[0].t-raw.start<=600000 ? sr[0].v : null), v1 = sr.length ? sr[sr.length-1].v : null; if(v0!=null && v1!=null && v0>0){ a+=v0; b+=v1; } });
+    if(a>0) dOI = (b-a)/a*100;
+  }
+  const closes = sp.map(x=>x.close);
+  return makeRow({t:raw.start, dateKey:localKey(raw.start), o:closes[0], h:Math.max(...closes), l:Math.min(...closes), c:closes[closes.length-1],
+    sB:sum(sp,"buy"), sS:sum(sp,"sell"), pB:sum(pp,"buy"), pS:sum(pp,"sell"), dOI, okx:(raw.spotNames||[]).includes("OKX"), live:true});
+}
+function oursRows(c, fromKey, toKey){
+  const saved = getDays(c);
+  return Object.keys(saved).filter(k=>k>=fromKey && k<=toKey).sort().map(k=>{ const d=saved[k]; return makeRow({...d, t:d.start, dateKey:k, live:false}); });
+}
+const archiveCache = {};
+async function archiveRows(c, from, to, force){
+  const key = c+"|"+from+"|"+to;
+  if(!force && archiveCache[key] && (to <= Date.now() || Date.now()-archiveCache[key].at < 60000)) return archiveCache[key].rows;
+  const C = COINS[c];
+  const days = Math.ceil((Math.min(to, Date.now()) - from)/86400000)+1;
+  const q = "&interval=1d&startTime="+from+"&endTime="+(to-1)+"&limit="+Math.min(1000, Math.max(1, days));
+  const SP="https://api.binance.com/api/v3/klines?symbol=", FP="https://fapi.binance.com/fapi/v1/klines?symbol=", DP="https://dapi.binance.com/dapi/v1/klines?symbol=";
+  const usdc = C.bn.replace("USDT","USDC"), fd = C.bn.replace("USDT","FDUSD");
+  const get = (u, cm)=>getJSON(u+q).then(d=>d.map(k=>cm ? {t:k[0], buy:+k[10], vol:+k[7]} : {t:k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], buy:+k[9], vol:+k[5]})).catch(()=>null);
+  const [s1,s2,s3,p1,p2,p3,oi] = await Promise.all([
+    get(SP+C.bn), get(SP+usdc), get(SP+fd), get(FP+C.bn), get(FP+usdc), get(DP+C.bcm, true),
+    (to > Date.now()-31*86400000) ? getJSON("https://fapi.binance.com/futures/data/openInterestHist?symbol="+C.bn+"&period=1d&limit=30").catch(()=>null) : Promise.resolve(null)
+  ]);
+  if(!s1) throw new Error("Binance daily data didn't load");
+  const day = new Map();
+  s1.forEach(k=>day.set(k.t, {t:k.t, o:k.o, h:k.h, l:k.l, c:k.c, sB:0, sS:0, pB:0, pS:0}));
+  const add = (arr, side)=>{ (arr||[]).forEach(k=>{ const d=day.get(k.t); if(!d) return; if(side==="s"){ d.sB+=k.buy; d.sS+=k.vol-k.buy; } else { d.pB+=k.buy; d.pS+=k.vol-k.buy; } }); };
+  add(s1,"s"); add(s2,"s"); add(s3,"s"); add(p1,"p"); add(p2,"p"); add(p3,"p");
+  const oiMap = new Map(); (Array.isArray(oi)?oi:[]).forEach(o=>oiMap.set(+o.timestamp, +o.sumOpenInterest));
+  const rows = [...day.values()].sort((a,b)=>a.t-b.t).map(d=>{
+    const o0 = oiMap.get(d.t), o1 = oiMap.get(d.t+86400000);
+    return makeRow({...d, dateKey:utcKey(d.t), oi0:o0, oi1:o1, live: d.t+86400000 > Date.now()});
+  });
+  archiveCache[key] = {at:Date.now(), rows};
+  return rows;
+}
+async function monthRows(c, ym, force){
+  if(histMode==="archive") return archiveRows(c, Date.UTC(ym.y, ym.m, 1), Date.UTC(ym.y, ym.m+1, 1), force);
+  const rows = oursRows(c, ymKey(ym)+"-01", ymKey(ym)+"-31");
+  const now = new Date();
+  if(ym.y===now.getFullYear() && ym.m===now.getMonth()){
+    if(!todayRaw || force || c!==todayCoin) { try{ todayRaw = await loadToday(c); todayCoin = c; }catch(e){} }
+    const live = todayLiveRow(); if(live && !rows.some(r=>r.dateKey===live.dateKey)) rows.push(live);
+  }
+  return rows;
+}
+let todayCoin = null, histRows = [];
+function renderHistMode(){
+  $("histMode").innerHTML = "";
+  Object.keys(HMODES).forEach(k=>{
+    const b=document.createElement("button"); b.type="button"; b.textContent=HMODES[k]; b.setAttribute("aria-pressed", k===histMode?"true":"false");
+    b.addEventListener("click",()=>{ if(k===histMode) return; histMode=k; store.histMode=k; save(); renderHistMode(); loadHistory(); });
+    $("histMode").append(b);
+  });
+}
+async function loadHistory(force){
+  renderHistMode();
+  $("histMonth").textContent = monthName(histYM);
+  $("histTitle").textContent = coin+" history · "+(histMode==="ours" ? "our data" : "Binance archive");
+  const now = new Date(), isNow = histYM.y===now.getFullYear() && histYM.m===now.getMonth();
+  $("histNext").disabled = isNow;
+  $("histTable").innerHTML = '<div class="empty">Loading '+monthName(histYM)+'…</div>';
+  const c = coin, ym = {...histYM}, mode = histMode;
+  try{
+    const rows = await monthRows(c, ym, force);
+    if(c!==coin || ym.y!==histYM.y || ym.m!==histYM.m || mode!==histMode) return;   // user moved on while loading
+    histRows = rows; renderHistory();
+    $("stamp").textContent = "Updated "+new Date().toLocaleTimeString("en-GB");
+  }catch(e){
+    histRows = []; renderHistory();
+    $("histTable").innerHTML = '<div class="empty err">Couldn\'t load '+esc(monthName(histYM))+'. Press Refresh to try again.</div>';
+  }
+  captureMissingDays();
+}
+function renderHistNote(){
+  if(histMode==="archive"){
+    $("histNote").textContent = "Binance archive: Binance only, all pairs (spot = USDT + USDC + FDUSD, perps = USDT + USDC + coin-margined), going back years. Days run midnight to midnight UTC (1am to 1am UK time in summer). Open interest change is only published for the last 30 days. Totals are lower than Our data, which also includes OKX. CSV files open in Excel or Google Sheets.";
+    return;
+  }
+  const saved = Object.keys(getDays(coin)).sort();
+  const first = saved.length ? new Date(saved[0]+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric", month:"long", year:"numeric"}) : null;
+  const done = histRows.filter(r=>!r.live).length, now = new Date();
+  const isNow = histYM.y===now.getFullYear() && histYM.m===now.getMonth();
+  const expected = isNow ? now.getDate()-1 : daysIn(histYM);
+  const missing = Math.max(0, expected - done);
+  $("histNote").textContent = "Our data: the same sources as the Today chart (Binance all pairs + OKX; open interest from Binance, Bybit and OKX), for UK days midnight to midnight. Each day is saved once it has finished, by the app's background alerts or whenever you open this page, and missed days are caught up for up to 3 days. "
+    + (first ? "Saved data for "+coin+" starts on "+first+". " : "Nothing saved for "+coin+" yet: the first finished day appears after midnight. ")
+    + (missing>0 ? missing+" day"+(missing===1?"":"s")+" in this month "+(missing===1?"has":"have")+" no saved data; use Binance archive for those. " : "")
+    + "Days marked \"Binance only\" are ones where OKX didn't have the full day. CSV files open in Excel or Google Sheets.";
+}
+function renderHistory(){
+  renderHistNote();
+  const R = histRows, U = coin;
+  if(!R.length){ $("histSum").innerHTML=""; drawHistChart(); $("histTable").innerHTML = '<div class="empty">'+(histMode==="ours" ? "No saved days for this month yet." : "No data for this month.")+'</div>'; return; }
+  const sNet = R.reduce((a,r)=>a+r.sNet,0), pNet = R.reduce((a,r)=>a+r.pNet,0);
+  const sVol = R.reduce((a,r)=>a+r.sV,0), pVol = R.reduce((a,r)=>a+r.pV,0);
+  const mChg = (R[R.length-1].c - R[0].o)/R[0].o*100;
+  const upS = R.filter(r=>r.sNet>0).length, upP = R.filter(r=>r.pNet>0).length;
+  const stat=(label,val,sub,c)=>`<div class="stat"><small>${label}</small><b class="${c||""}">${val}</b><span>${sub}</span></div>`;
+  $("histSum").innerHTML =
+    stat("Spot net", signed(sNet,fmtBig)+" "+U, pctS(sVol? sNet/sVol*100 : 0)+" of volume · "+upS+"/"+R.length+" days net buying", cls(sNet)) +
+    stat("Perp net", signed(pNet,fmtBig)+" "+U, pctS(pVol? pNet/pVol*100 : 0)+" of volume · "+upP+"/"+R.length+" days net buying", cls(pNet)) +
+    stat("Price", pctS(mChg,2), "$"+fmtP(R[0].o)+" → $"+fmtP(R[R.length-1].c), cls(mChg));
+  drawHistChart();
+  const rows = [...R].reverse().map(r=>{
+    const lbl = new Date(r.dateKey+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short", day:"2-digit"});
+    const extra = (r.dOI!=null?` <span class="t-neutral">· OI ${pctS(r.dOI,1)}</span>`:"") + (histMode==="ours" && r.okx===false ? ` <span class="t-neutral">· Binance only</span>` : "");
+    return `<tr class="h1"><td>${lbl}${r.live?"<small class='t-neutral'>so far</small>":""}</td><td class="r">${fmtP(r.c)}</td><td class="r ${cls(r.chg)}">${pctS(r.chg,2)}</td>`+
+      `<td class="r ${cls(r.sNet)}">${signed(r.sNet,fmtBig)}<small>${pctS(r.sImb*100)}</small></td>`+
+      `<td class="r ${cls(r.pNet)}">${signed(r.pNet,fmtBig)}<small>${pctS(r.pImb*100)}</small></td></tr>`+
+      `<tr class="h2"><td colspan="5"><span class="t-${r.read.tone}">${r.read.icon} ${esc(r.read.title)}</span>${extra}</td></tr>`;
+  }).join("");
+  $("histTable").innerHTML = `<table><thead><tr><th>Day</th><th class="r">Close</th><th class="r">Day</th><th class="r">Spot</th><th class="r">Perp</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function drawHistChart(){
+  const cv = $("histChart"); const w = cv.clientWidth || 600, h = 230, dpr = window.devicePixelRatio||1;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); cv.style.height = h+"px";
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  const R = histRows; if(!R.length) return;
+  const css = getComputedStyle(document.documentElement), tok = n=>css.getPropertyValue(n).trim();
+  const cPrice=tok("--price"), cMut=tok("--muted"), cLine=tok("--line"), cBid=tok("--bid"), cAsk=tok("--ask");
+  g.font = "11px "+tok("--mono"); g.textBaseline="middle";
+  const nDays = daysIn(histYM);
+  const padL=58, padR=12, top=8, priceH=90, gap=14, barH=90, axisH=18;
+  const W = Math.max(40, w-padL-padR), colW = W/nDays;
+  const X = r => padL + ((+r.dateKey.slice(8,10))-1 + 0.5)*colW;
+  const ps = R.flatMap(r=>[r.h,r.l]), pMin=Math.min(...ps), pMax=Math.max(...ps), pr=(pMax-pMin)||pMax*0.01;
+  const YP = v => top + priceH - (v-pMin)/pr*priceH;
+  [pMax,(pMax+pMin)/2,pMin].forEach(v=>{ const y=YP(v); g.strokeStyle=cLine; g.globalAlpha=.6; g.beginPath(); g.moveTo(padL,Math.round(y)+.5); g.lineTo(padL+W,Math.round(y)+.5); g.stroke(); g.globalAlpha=1; g.fillStyle=cPrice; g.textAlign="right"; g.fillText(fmtP(+v.toPrecision(5)), padL-6, y); });
+  R.forEach(r=>{ const x=X(r); g.strokeStyle=cPrice; g.globalAlpha=.35; g.beginPath(); g.moveTo(x,YP(r.h)); g.lineTo(x,YP(r.l)); g.stroke(); g.globalAlpha=1; });
+  g.strokeStyle=cPrice; g.lineWidth=2; g.beginPath(); R.forEach((r,i)=>{ const x=X(r), y=YP(r.c); i?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke(); g.lineWidth=1;
+  const bTop = top+priceH+gap, zero = bTop+barH/2;
+  const nMax = Math.max(1e-9, ...R.map(r=>Math.abs(r.sNet)), ...R.map(r=>Math.abs(r.pNet)));
+  g.strokeStyle=cLine; g.beginPath(); g.moveTo(padL,zero+.5); g.lineTo(padL+W,zero+.5); g.stroke();
+  const bw = Math.max(1.5, colW*0.36);
+  R.forEach(r=>{
+    const x=X(r);
+    [[r.sNet,1,-bw],[r.pNet,.45,0]].forEach(([v,a,off])=>{ const hh=Math.abs(v)/nMax*(barH/2-2); g.globalAlpha=a; g.fillStyle=v>=0?cBid:cAsk; g.fillRect(x+off, v>=0?zero-hh:zero+1, bw, Math.max(1,hh)); });
+    g.globalAlpha=1;
+  });
+  g.fillStyle=cMut; g.textAlign="right";
+  g.fillText("+"+fmtK(nMax), padL-6, bTop+6); g.fillText("−"+fmtK(nMax), padL-6, bTop+barH-6);
+  const every = [1,2,3,5,7].find(s=>s*colW>=26) || 7;
+  g.textAlign="center"; g.textBaseline="alphabetic";
+  for(let d=0; d<nDays; d+=every){ g.fillText(String(d+1), padL+(d+0.5)*colW, bTop+barH+axisH-4); }
+}
+// ---------- CSV ----------
+function csvFor(rows){
+  const head = ["date","source","open","high","low","close","day_change_pct","spot_buy","spot_sell","spot_net","spot_imbalance_pct","perp_buy","perp_sell","perp_net","perp_imbalance_pct","open_interest_change_pct","read","complete_day"];
+  const f = (v,d)=> v==null||isNaN(v) ? "" : (+v).toFixed(d);
+  const src = r => histMode==="archive" ? "Binance (UTC day)" : (r.okx===false ? "Binance only (UK day)" : "Binance + OKX (UK day)");
+  const lines = rows.map(r=>[r.dateKey, '"'+src(r)+'"', f(r.o,2), f(r.h,2), f(r.l,2), f(r.c,2), f(r.chg,3), f(r.sB,4), f(r.sS,4), f(r.sNet,4), f(r.sImb*100,2), f(r.pB,4), f(r.pS,4), f(r.pNet,4), f(r.pImb*100,2), f(r.dOI,3), '"'+r.read.title.replace(/"/g,'""')+'"', r.live?"no":"yes"].join(","));
+  return head.join(",")+"\n"+lines.join("\n")+"\n";
+}
+function saveText(name, text){
+  if(NATIVE && Android.saveFile){ try{ return Android.saveFile(name, text); }catch(e){ return "Couldn't save the file."; } }
+  try{
+    const url = URL.createObjectURL(new Blob([text], {type:"text/csv"}));
+    const a = document.createElement("a"); a.href=url; a.download=name; document.body.append(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    return "Downloaded "+name;
+  }catch(e){ return "Couldn't download the file."; }
+}
+$("histPrev").addEventListener("click",()=>{ histYM = histYM.m===0 ? {y:histYM.y-1, m:11} : {y:histYM.y, m:histYM.m-1}; loadHistory(); });
+$("histNext").addEventListener("click",()=>{ const n = histYM.m===11 ? {y:histYM.y+1, m:0} : {y:histYM.y, m:histYM.m+1}; const d=new Date(); if(new Date(n.y,n.m,1) > new Date(d.getFullYear(), d.getMonth(), 1)) return; histYM=n; loadHistory(); });
+$("histNow").addEventListener("click",()=>{ const d=new Date(); histYM={y:d.getFullYear(), m:d.getMonth()}; loadHistory(); });
+$("dlMonth").addEventListener("click",()=>{
+  if(!histRows.length){ $("dlMsg").textContent="Nothing loaded yet."; return; }
+  const name = coin+"-"+(histMode==="ours"?"our-data":"binance-archive")+"-"+ymKey(histYM)+".csv";
+  $("dlMsg").textContent = saveText(name, csvFor(histRows));
+});
+$("dlYear").addEventListener("click", async()=>{
+  $("dlMsg").textContent = "Loading 12 months…";
+  const d = new Date();
+  try{
+    let rows;
+    if(histMode==="archive"){
+      rows = await archiveRows(coin, Date.UTC(d.getUTCFullYear(), d.getUTCMonth()-11, 1), Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 1));
+    } else {
+      const from = new Date(d.getFullYear(), d.getMonth()-11, 1);
+      rows = oursRows(coin, localKey(from.getTime()), "9999-12-31");
+      const live = coin===todayCoin || todayRaw ? todayLiveRow() : null;
+      if(live && !rows.some(r=>r.dateKey===live.dateKey)) rows.push(live);
+    }
+    const name = coin+"-"+(histMode==="ours"?"our-data":"binance-archive")+"-last-12-months-"+localKey(Date.now())+".csv";
+    $("dlMsg").textContent = rows.length ? saveText(name, csvFor(rows)) : "Nothing saved yet.";
+  }catch(e){ $("dlMsg").textContent = "Couldn't load the 12 months."; }
+});
+
 function renderToday(){
   const box = $("today"), U = coin;
   if(!today){ box.innerHTML = `<div class="empty">Loading today's buying and selling…</div>`; $("readout").innerHTML=""; drawChart(); return; }
@@ -1014,7 +1392,7 @@ function syncNative(){
   if(!NATIVE) return;
   const coins = {};
   ["BTC","ETH","SOL"].forEach(c=>{ const p=per(c); coins[c]={on:!!p.on, whale:+p.whale, execSpot:+p.execSpot, execPerp:+p.execPerp, netSpot:+p.netSpot, netPerp:+p.netPerp}; });
-  try{ Android.setSettings(JSON.stringify({ coins, spotOn: store.spotOn!==false, perpOn: store.perpOn!==false, sigOn: store.sigOn!==false, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
+  try{ Android.setSettings(JSON.stringify({ coins, spotOn: store.spotOn!==false, perpOn: store.perpOn!==false, sigOn: store.sigOn!==false, wallsOn: store.wallsOn!==false, wallsGrouped: store.wallsGrouped===true, wallMin: +store.wallMin||5, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
 }
 function renderWatchMarkets(){
   const w = $("watchMk"); w.innerHTML = "<span>Markets:</span>";
@@ -1025,7 +1403,17 @@ function renderWatchMarkets(){
     lab.append(cb, document.createTextNode(label)); w.append(lab);
   });
 }
+function renderWatchWalls(){
+  const w = $("watchWalls"); w.innerHTML = "<span>Walls:</span>";
+  [["wallsOn","Wall alerts",true],["wallsGrouped","Include Hyperliquid & Bitfinex",false]].forEach(([k,label,def])=>{
+    const lab=document.createElement("label"), cb=document.createElement("input");
+    cb.type="checkbox"; cb.id="w_"+k; cb.checked = store[k]==null ? def : !!store[k];
+    cb.addEventListener("change",()=>{ store[k]=cb.checked; save(); syncNative(); renderAlerts(); });
+    lab.append(cb, document.createTextNode(label)); w.append(lab);
+  });
+}
 function renderWatch(){
+  renderWatchWalls();
   renderWatchMarkets();
   if(!NATIVE) return;
   const w = $("watch"); w.innerHTML = "<span>Alert me for:</span>";
@@ -1067,13 +1455,17 @@ numInput("shark","shark"); numInput("whale","whale"); numInput("print","print");
 $("bin").addEventListener("change",()=>{ per(coin).bin=+$("bin").value; save(); render(); });
 $("range").addEventListener("change",()=>{ store.range=+$("range").value; save(); syncNative(); render(); });
 $("accel").addEventListener("change",()=>{ store.accel=+$("accel").value; save(); syncNative(); renderToday(); });
+if(store.wallMin!=null) $("wallMin").value = store.wallMin;
+$("wallMin").addEventListener("change",()=>{ const v=Math.round(+$("wallMin").value); if(!(v>=1)){ $("wallMin").value = store.wallMin||5; return; } store.wallMin=v; $("wallMin").value=v; save(); syncNative(); });
 $("interval").addEventListener("change",()=>{ store.interval=+$("interval").value; save(); syncNative(); renderAlerts(); });
 let timer=null;
 function setAuto(){ if(timer) clearInterval(timer); const s=+$("auto").value; if(s>0) timer=setInterval(refresh, s*1000); }
 $("refresh").addEventListener("click", refresh);
 $("auto").addEventListener("change", ()=>{ store.auto=+$("auto").value; save(); setAuto(); });
-let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(drawChart,150); });
+let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ drawChart(); if(market==="history") drawHistChart(); },150); });
 
+document.body.classList.toggle("hist", market==="history");
+setTimeout(()=>captureMissingDays(), 8000);
 renderCoins(); renderMarkets(); renderDivWin(); fillControls(); render(); renderAlerts(); setAuto(); refresh();
 })();
 </script>
