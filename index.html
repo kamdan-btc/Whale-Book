@@ -222,7 +222,7 @@ body.etf .controls, body.etf #chips, body.etf #todayCard, body.etf #alertsCard, 
       <select id="interval"><option value="30">30s</option><option value="60" selected>60s</option><option value="120">2 min</option></select>
     </label>
   </div>
-  <p class="note" style="margin:6px 0 10px">The size boxes apply to the coin selected at the top. Wall alerts use that coin's Whale size and the Range above. A wall only counts once it has stayed for the minutes you set, so spoofs that flicker on and off never alert. Then you only hear about four things: 🐋 a new wall that has stayed, 🛡 price tested it and it held, 💥 price broke through it, 👻 it vanished just as price got close (within 0.25%). Walls pulled while price is far away, or that just drift out of range, stay quiet. The same wall won't alert again for 30 minutes.</p>
+  <p class="note" style="margin:6px 0 10px">The size boxes apply to the coin selected at the top. Wall alerts use that coin's Whale size and the Range above. A wall only counts once it has stayed for the minutes you set, so spoofs that flicker on and off never alert. Then you only hear about four things: 🐋 a new wall that has stayed, 🛡 price tested it and it held, 💥 it disappeared with price at it or through it, 👻 it vanished with price still close (within 0.25%) but before it was reached. Walls that fade after price has already moved away, walls pulled while price is far away, and walls that just drift out of range stay quiet. On Hyperliquid, the $100 bucket at the price never counts as a wall by itself. The same wall won't alert again for 30 minutes.</p>
   <div class="alertTop">
     <button type="button" id="battBtn">Allow running in background</button>
     <button type="button" id="appSetBtn">App settings</button>
