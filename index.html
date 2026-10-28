@@ -141,6 +141,19 @@ body.hist .controls, body.hist #chips, body.hist #todayCard, body.hist #alertsCa
 #divHours tr.hr1 td{border-bottom:0;padding-bottom:1px}
 #divHours tr.hr2 td{padding-top:0;padding-bottom:7px;font-size:12px;white-space:normal}
 .alert.perp{border-left:3px solid var(--line);padding-left:9px}
+.alert.etf{border-left:3px solid var(--bid);padding-left:9px}
+/* ETF tab */
+#etfCard{display:none}
+body.etf #etfCard{display:block}
+body.etf .controls, body.etf #chips, body.etf #todayCard, body.etf #alertsCard, body.etf .grid, body.etf #divCard, body.etf #mainNote, body.etf #histCard{display:none !important}
+#etfChart{width:100%;height:270px;display:block}
+.etfTbl table{font-size:11.5px}
+.etfTbl th,.etfTbl td{padding:4px 5px}
+.etfTbl tr.h1 td{border-bottom:0;padding-bottom:1px}
+.etfTbl tr.h2 td{padding-top:0;padding-bottom:7px;font-size:12px;white-space:normal}
+.etfTbl td.w{white-space:normal}
+.etfSec{margin-top:16px}
+#etfRange p{margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -176,7 +189,8 @@ body.hist .controls, body.hist #chips, body.hist #todayCard, body.hist #alertsCa
 <div class="chips" id="chips"></div>
 
 <div class="card block" id="todayCard">
-  <h2 id="todayTitle">Today's market orders · Binance spot + perp</h2>
+  <h2 id="todayTitle">Today's buy/sell flow · Binance + OKX spot + perp</h2>
+  <p class="note" id="todayNote" style="margin:-4px 0 10px">Buy/sell totals come from Binance (all pairs) and OKX: they are the only exchanges here that publish a full day of market buys and sells for free. Order books, walls and big orders on this page cover all 11 exchanges.</p>
   <div class="today" id="today"><div class="empty">Loading today's buying and selling…</div></div>
   <div class="readout" id="readout"></div>
   <div class="chartwrap"><canvas id="cvd" aria-label="Price and net buying since midnight, with net buying per hour"></canvas></div>
@@ -280,6 +294,36 @@ body.hist .controls, body.hist #chips, body.hist #todayCard, body.hist #alertsCa
   <p class="note" id="histNote" style="margin:10px 0 0"></p>
 </div>
 
+<div class="card block" id="etfCard">
+  <h2>US spot Bitcoin ETFs · daily net flows</h2>
+  <p class="note" id="etfStamp" style="margin:-4px 0 10px">Loading…</p>
+  <div class="read neutral" id="etfRead"><b>Loading…</b></div>
+  <div class="today" id="etfStats"></div>
+  <h2 class="etfSec">Last 60 sessions</h2>
+  <div class="chartwrap"><canvas id="etfChart" aria-label="BTC price with daily ETF net flows for the last 60 sessions"></canvas></div>
+  <div class="legend" style="margin-top:8px">
+    <span><i style="background:var(--price)"></i>BTC price</span>
+    <span><i style="background:var(--bid)"></i><i style="background:var(--ask)"></i>ETF net flow per session</span>
+    <span><i style="background:var(--muted)"></i>Dashed: normal range (5th–95th percentile, last 120 sessions)</span>
+    <span>● where a read started</span>
+  </div>
+  <h2 class="etfSec">How big is big?</h2>
+  <div id="etfRange" class="note">—</div>
+  <h2 class="etfSec">Track record of each read · since Jan 2024</h2>
+  <div class="tbl etfTbl" id="etfTrack"><div class="empty">—</div></div>
+  <p class="note" style="margin:8px 0 0">Times = separate occasions (days in a row with the same read count once). Up 5 / Up 10 = how often BTC closed higher 5 or 10 sessions later (about one or two weeks). Med 10 = the typical move over those 10 sessions. Compare each row with "Any session": a read only means something if it beats that. The samples are small, so treat a read as a lean, not a promise.</p>
+  <h2 class="etfSec">By fund · $</h2>
+  <div class="tbl etfTbl" id="etfFunds"><div class="empty">—</div></div>
+  <h2 class="etfSec">Recent sessions</h2>
+  <div class="tbl etfTbl" id="etfRecent"><div class="empty">—</div></div>
+  <div class="dl">
+    <button type="button" id="etfDl">Download all sessions (CSV)</button>
+    <span class="stamp" id="etfDlMsg"></span>
+  </div>
+  <p class="note" style="margin:10px 0 0">A session is one US trading day. Funds report after the US close (9pm UK), so a day's figure usually lands overnight and shows here the next morning UK time. Flows are in US dollars: creations minus redemptions across all US spot Bitcoin ETFs. BTC price is the reference price at the US close. The reads look at the last 5 sessions together, because single days are noisy. Flows mostly follow price, so on their own they rarely call turns: the reads that held up best are the ones where flows and price disagree.</p>
+  <p class="note" style="margin:8px 0 0">Data: <a href="https://www.tftc.io/bitcoin-etf-flows" target="_blank" rel="noopener" style="color:var(--price)">The Commoner Bitcoin ETF Tracker by TFTC</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" style="color:var(--price)">CC BY 4.0</a>. Reads and statistics are worked out on this page from that data.</p>
+</div>
+
 <p class="note" id="mainNote" style="margin-top:16px">Sizes are resting orders at one price level on one venue, in coins. Perp books (Binance, Bybit and Bitfinex perps) are where most leverage sits. Bitfinex levels are grouped to 4 significant figures (for example $10 steps on BTC) and Hyperliquid levels to wider steps ($100 on BTC), because those exchanges only share a limited number of levels for free. <span class="sticky">● ×N</span> means a wall has stayed within 0.05% of the same price for N refreshes in a row; walls that vanish after one refresh are often spoofs. Data comes straight from each exchange's public API; a venue shows "blocked" if your network or region refuses it.</p>
 
 <script>
@@ -308,9 +352,9 @@ const VENUES = [
   {id:"hyper",    name:"Hyperliquid perp", color:"#5ee6c8"}
 ];
 const SPOT = new Set(["binance","coinbase","kraken","okx","bitfinex","bybits"]), PERP = new Set(["binancef","bybit","bitfinexf","okxf","hyper"]);
-const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps", history:"History"};
+const MARKETS = {all:"Overview", spot:"Spot", perp:"Perps", history:"History", etf:"ETF"};
 let market = "all";
-function inMarket(id){ return market==="all" || market==="history" || (market==="spot" ? SPOT.has(id) : PERP.has(id)); }
+function inMarket(id){ return market==="all" || market==="history" || market==="etf" ||(market==="spot" ? SPOT.has(id) : PERP.has(id)); }
 const VCOL = Object.fromEntries(VENUES.map(v=>[v.id,v.color]));
 const VNAME = Object.fromEntries(VENUES.map(v=>[v.id,v.name]));
 const $ = id=>document.getElementById(id);
@@ -347,6 +391,7 @@ if(NATIVE){
     if(ns.spotOn!=null) store.spotOn = !!ns.spotOn;
     if(ns.perpOn!=null) store.perpOn = !!ns.perpOn;
     if(ns.sigOn!=null) store.sigOn = !!ns.sigOn;
+    if(ns.etfOn!=null) store.etfOn = !!ns.etfOn;
     if(ns.wallsOn!=null) store.wallsOn = !!ns.wallsOn;
     if(ns.wallsGrouped!=null) store.wallsGrouped = !!ns.wallsGrouped;
     if(ns.wallMin!=null) store.wallMin = +ns.wallMin;
@@ -394,11 +439,13 @@ function renderMarkets(){
     const b=document.createElement("button"); b.type="button"; b.textContent=MARKETS[m]; b.setAttribute("aria-pressed", m===market?"true":"false");
     b.addEventListener("click",()=>{
       if(m===market) return;
-      const wasHist = market==="history";
+      const wasHist = market==="history" || market==="etf";
       market=m; store.market=m; save(); hoverIdx=null;
       document.body.classList.toggle("hist", m==="history");
+      document.body.classList.toggle("etf", m==="etf");
       renderMarkets();
       if(m==="history"){ loadHistory(); return; }
+      if(m==="etf"){ loadEtf(); return; }
       today = deriveToday(todayRaw); renderTitles(); render();
       if(wasHist && !lastAt) refresh();
     });
@@ -408,7 +455,7 @@ function renderMarkets(){
 function renderTitles(){
   const names = todayRaw ? [...new Set([...(market!=="perp"?todayRaw.spotNames:[]), ...(market!=="spot"?todayRaw.perpNames:[])])] : ["Binance","OKX"];
   const src = (names.length?names.join(" + "):"Binance") + (market==="all" ? " spot + perp" : market==="spot" ? " spot" : " perps");
-  $("todayTitle").textContent = "Today's "+coin+" market orders · "+src;
+  $("todayTitle").textContent = "Today's "+coin+" buy/sell flow · "+src;
   $("ladderTitle").textContent = "Depth ladder · "+(market==="all" ? "all venues" : market==="spot" ? "spot venues" : "perp venues");
 }
 function fillControls(){
@@ -435,7 +482,7 @@ function renderVenues(){
     cb.addEventListener("change",()=>{ cb.checked?enabled.add(v.id):enabled.delete(v.id); per(coin).venues=[...enabled]; save(); render(); });
     const dot=document.createElement("i"); dot.style.background=v.color;
     const t=document.createElement("span"); t.textContent=v.name;
-    const st=document.createElement("em"); st.textContent = status[v.id]==="ok"?"live":status[v.id]?"blocked":"";
+    const st=document.createElement("em"); st.textContent = status[v.id]==="ok"?"live":status[v.id]!=null?whyText(status[v.id]):"";
     lab.append(cb,dot,t,st); $("venues").append(lab);
   });
   $("legend").innerHTML = VENUES.filter(v=>enabled.has(v.id) && inMarket(v.id)).map(v=>`<span><i style="background:${v.color}"></i>${v.name}</span>`).join("")
@@ -443,10 +490,41 @@ function renderVenues(){
 }
 
 // ---------- fetching ----------
+// Exchanges pause an IP that asks too often (HTTP 429, or 418 for a longer ban). When that happens, stop asking
+// that exchange for a while instead of making it worse. Pairs an exchange says don't exist are not asked for again.
+const pausedUntil = {}, badSymbols = new Set();
+function fetchErr(msg, status){ const e = new Error(msg); e.status = status; return e; }
 async function getJSON(url, ms=9000){
+  const u = new URL(url), host = u.host, sym = u.searchParams.get("symbol");
+  if(pausedUntil[host] && Date.now() < pausedUntil[host].until) throw fetchErr("paused", pausedUntil[host].why);
+  if(sym && badSymbols.has(host+"|"+sym)) throw fetchErr("no such pair", 400);
   const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
-  try{ const r = await fetch(url,{signal:ctl.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
-  finally{ clearTimeout(t); }
+  try{
+    const r = await fetch(url,{signal:ctl.signal});
+    if(!r.ok){
+      if(r.status===429 || r.status===418){
+        const ra = +(r.headers.get("Retry-After")||0);
+        pausedUntil[host] = {until: Date.now() + (ra>0 ? ra*1000 : (r.status===418 ? 5*60000 : 60000)), why: r.status};
+      }
+      if(r.status===400 && sym) badSymbols.add(host+"|"+sym);
+      throw fetchErr("HTTP "+r.status, r.status);
+    }
+    return await r.json();
+  }catch(e){
+    if(e.name==="AbortError") throw fetchErr("timeout", "timeout");
+    if(e.status==null) e.status = "network";
+    throw e;
+  }finally{ clearTimeout(t); }
+}
+// what to show on an exchange chip when it didn't answer
+function whyText(st){
+  if(st===429) return "rate-limited, retrying shortly";
+  if(st===418) return "paused by exchange, retrying in a few min";
+  if(st===451 || st===403) return "blocked in your region";
+  if(st==="timeout") return "no answer (timeout)";
+  if(st==="network") return "no connection";
+  if(typeof st==="number" && st>=500) return "exchange error "+st;
+  return "no answer";
 }
 async function postJSON(url, body, ms=9000){
   const ctl = new AbortController(); const t = setTimeout(()=>ctl.abort(), ms);
@@ -534,6 +612,7 @@ const seen = new Map();   // wall persistence: key -> {count, price}
 
 async function refresh(){
   if(market==="history"){ loadHistory(true); return; }
+  if(market==="etf"){ loadEtf(true); return; }
   if(busy) return; busy = true;
   const my = ++loadId, c = coin;
   $("refresh").disabled = true; $("refresh").textContent = "Loading…";
@@ -546,7 +625,7 @@ async function refresh(){
     ]);
     if(my!==loadId || c!==coin) return;   // coin changed while loading
     const nb = {};
-    res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id]="err"; } });
+    res.forEach((r,i)=>{ const id=ids[i]; if(r.status==="fulfilled" && r.value.bids.length){ nb[id]=r.value; status[id]="ok"; } else { status[id] = r.status==="rejected" && r.reason ? (r.reason.status ?? "err") : "err"; } });
     books = nb; trades = tr; todayRaw = td; todayCoin = c; today = deriveToday(td); lastAt = new Date();
     renderTitles();
     trackPersistence();
@@ -563,6 +642,7 @@ function switchCoin(c){
   loadId++; busy = false;
   renderCoins(); fillControls(); render(); renderAlerts();
   if(market==="history"){ loadHistory(); return; }
+  if(market==="etf"){ renderEtf(); return; }
   refresh();
 }
 
@@ -631,7 +711,9 @@ function render(){
   const sumSide = (side,r)=>levels.filter(l=>l.side===side && Math.abs(l.p-mid)/mid<=r).reduce((a,l)=>a+l.q,0);
   const b1=sumSide("bid",0.01), a1=sumSide("ask",0.01), bR=sumSide("bid",s.range), aR=sumSide("ask",s.range);
   const imb = (b,a)=> (b+a)? (b-a)/(b+a) : 0;
-  const cbMid = midOf(books.coinbase), bnMid = midOf(books.binance);
+  // compare with Binance spot; if Binance doesn't answer, with OKX spot (also a USDT market)
+  const refName = midOf(books.binance) ? "Binance" : midOf(books.okx) ? "OKX" : "Binance";
+  const cbMid = midOf(books.coinbase), bnMid = midOf(books.binance) || midOf(books.okx);
   const prem = cbMid&&bnMid ? cbMid-bnMid : null;
   const topBid = bidBins.reduce((m,b)=>b.total>(m?m.total:0)?b:m,null);
   const topAsk = askBins.reduce((m,b)=>b.total>(m?m.total:0)?b:m,null);
@@ -643,7 +725,7 @@ function render(){
     chip("Imbalance ±"+(s.range*100)+"%", pct(imb(bR,aR)), fmtQ(bR)+" bid / "+fmtQ(aR)+" ask "+U, imb(bR,aR)>=0?"var(--bid)":"var(--ask)") +
     chip("Biggest bid bin", topBid?"$"+fmtP(topBid.price):"—", topBid?fmtQ(topBid.total)+" "+U+" · "+pct((topBid.price-mid)/mid):"", "var(--bid)") +
     chip("Biggest ask bin", topAsk?"$"+fmtP(topAsk.price):"—", topAsk?fmtQ(topAsk.total)+" "+U+" · "+pct((topAsk.price-mid)/mid):"", "var(--ask)") +
-    chip("Coinbase premium", prem==null?"—":(prem>=0?"+$":"−$")+premAbs, prem==null?"needs Coinbase + Binance":pct(prem/bnMid)+" vs Binance", prem==null?"":prem>=0?"var(--bid)":"var(--ask)");
+    chip("Coinbase premium", prem==null?"—":(prem>=0?"+$":"−$")+premAbs, prem==null?"needs Coinbase + Binance or OKX":pct(prem/bnMid)+" vs "+refName, prem==null?"":prem>=0?"var(--bid)":"var(--ask)");
 
   // ladder
   const row = b=>{
@@ -681,9 +763,9 @@ function render(){
 
   // off-book
   const premTxt = prem==null ? "Coinbase premium unavailable (needs both Coinbase and Binance to load)."
-    : Math.abs(prem/bnMid) < 0.0001 ? "Coinbase trades level with Binance: no sign of unusual US demand either way."
-    : prem>0 ? `Coinbase trades <b>$${premAbs} above</b> Binance. A persistent premium usually means US institutions and OTC-linked desks are net buying.`
-    : `Coinbase trades <b>$${premAbs} below</b> Binance. A persistent discount usually means US institutional selling or weak spot demand.`;
+    : Math.abs(prem/bnMid) < 0.0001 ? "Coinbase trades level with "+refName+": no sign of unusual US demand either way."
+    : prem>0 ? `Coinbase trades <b>$${premAbs} above</b> ${refName}. A persistent premium usually means US institutions and OTC-linked desks are net buying.`
+    : `Coinbase trades <b>$${premAbs} below</b> ${refName}. A persistent discount usually means US institutional selling or weak spot demand.`;
   // Only whale-size walls, only the exchanges shown on this tab, and not Bitfinex/Hyperliquid:
   // their books are grouped into wide price steps, so their levels look like permanent walls.
   const GROUPED = new Set(["bitfinex","bitfinexf","hyper"]);
@@ -733,9 +815,9 @@ function calibrate(rows, candles){
   let a=0, b=0; rows.forEach(r=>{ const k=byT.get(r.t); if(k){ a+=r.buy+r.sell; b+=k.vol; } });
   const price = candles.length ? candles[0].close : 0;
   const inDollars = b>0 && price>0 && a/b > price*0.2;
-  if(!inDollars) return rows;
   const px = t=>{ const k=byT.get(t); return k ? k.close : price; };
-  return rows.map(r=>({t:r.t, buy:r.buy/px(r.t), sell:r.sell/px(r.t)}));
+  // close is OKX's own price for that bar; only used for the chart when Binance doesn't answer
+  return rows.map(r=>({t:r.t, buy: inDollars ? r.buy/px(r.t) : r.buy, sell: inDollars ? r.sell/px(r.t) : r.sell, close: byT.has(r.t) ? byT.get(r.t).close : null}));
 }
 async function loadToday(c){
   const C = COINS[c];
@@ -1216,9 +1298,11 @@ function drawHistChart(){
   });
   g.fillStyle=cMut; g.textAlign="right";
   g.fillText("+"+fmtK(nMax), padL-6, bTop+6); g.fillText("−"+fmtK(nMax), padL-6, bTop+barH-6);
-  const every = [1,2,3,5,7].find(s=>s*colW>=26) || 7;
+  const dw = g.measureText("31").width;
+  const every = [1,2,3,5,7].find(s=>s*colW >= dw+8) || 7;
   g.textAlign="center"; g.textBaseline="alphabetic";
-  for(let d=0; d<nDays; d+=every){ g.fillText(String(d+1), padL+(d+0.5)*colW, bTop+barH+axisH-4); }
+  let lastR = -Infinity;
+  for(let d=0; d<nDays; d+=every){ const x = padL+(d+0.5)*colW, tw = g.measureText(String(d+1)).width; if(x - tw/2 >= lastR + 4){ g.fillText(String(d+1), x, bTop+barH+axisH-4); lastR = x + tw/2; } }
 }
 // ---------- CSV ----------
 function csvFor(rows){
@@ -1262,6 +1346,252 @@ $("dlYear").addEventListener("click", async()=>{
     $("dlMsg").textContent = rows.length ? saveText(name, csvFor(rows)) : "Nothing saved yet.";
   }catch(e){ $("dlMsg").textContent = "Couldn't load the 12 months."; }
 });
+
+// ---------- BTC ETF flows ----------
+// Daily net flows of all US spot Bitcoin ETFs from The Commoner Bitcoin ETF Tracker by TFTC (CC BY 4.0).
+// The reads below use the last 5 sessions together. The same rules run in the app's background service (EtfLogic.java).
+const ETF_URL = "https://www.tftc.io/bitcoin-etf-flows/data.json";
+const ETF_W = 120, ETF_MIN = 60, ETF_GAP = 5;
+const ETF_READS = {
+  dip_bought:    {title:"Dip being bought",           tone:"good",    icon:"🟢", meaning:"Price fell 5% or more over the last 5 sessions, but the ETFs were still net buyers. Big buyers are using the drop."},
+  rally_unbacked:{title:"Rally without ETF buyers",   tone:"bad",     icon:"🔴", meaning:"Price rose 5% or more over the last 5 sessions while the ETFs were net sellers. The move isn't backed by the big money."},
+  quiet_accum:   {title:"Quiet accumulation",         tone:"up",      icon:"🔵", meaning:"Price has gone sideways (less than 2% either way over 5 sessions) while ETF buying is among the strongest 20% of the last 120 sessions. Supply is being soaked up without moving price."},
+  quiet_dist:    {title:"Quiet distribution",         tone:"warn",    icon:"🟠", meaning:"Price has gone sideways while ETF selling is among the heaviest 20% of the last 120 sessions. Coins are being fed into the market before price has dropped."},
+  selling_drop:  {title:"ETFs selling into the drop", tone:"bad",     icon:"🔻", meaning:"Price fell 5% or more and ETF selling is among the heaviest 20% of the last 120 sessions. This confirms the drop. On its own, heavy selling has not marked the bottom."},
+  chasing:       {title:"ETFs chasing the rally",     tone:"warn",    icon:"🔺", meaning:"Price rose 5% or more and ETF buying is among the strongest 20% of the last 120 sessions. This confirms the move, but the week or two after has often been flat."},
+  none:          {title:"No ETF signal",              tone:"neutral", icon:"⚪", meaning:"ETF flows are moving with price, with nothing unusual over the last 5 sessions."}
+};
+const ETF_ORDER = ["dip_bought","rally_unbacked","quiet_accum","quiet_dist","selling_drop","chasing","none"];
+const ETF_NAMES = {IBIT:"BlackRock", FBTC:"Fidelity", GBTC:"Grayscale", BTC:"Grayscale Mini", ARKB:"ARK 21Shares", BITB:"Bitwise", HODL:"VanEck", BRRR:"CoinShares Valkyrie", BTCO:"Invesco Galaxy", EZBC:"Franklin", BTCW:"WisdomTree"};
+
+// raw TFTC file -> sorted sessions, flows in $ millions (market holidays, where every fund is zero, are dropped)
+function etfParse(d){
+  const raw = d && Array.isArray(d.days) ? d.days : [];
+  const days = [];
+  raw.forEach(x=>{
+    if(!x || !/^\d{4}-\d{2}-\d{2}$/.test(String(x.date)) || x.netFlowUsd==null) return;
+    const net = Number(x.netFlowUsd);
+    if(!isFinite(net)) return;
+    const funds = {};
+    let any = net!==0;
+    if(x.perEtfUsd && typeof x.perEtfUsd==="object") for(const k in x.perEtfUsd){ const v = Number(x.perEtfUsd[k]); if(x.perEtfUsd[k]!=null && isFinite(v)){ funds[k] = v/1e6; if(v!==0) any = true; } }
+    if(!any) return;
+    const close = Number(x.btcCloseUsd);
+    days.push({date:String(x.date), net:net/1e6, close: x.btcCloseUsd!=null && close>0 ? close : null, aum: x.totalNetAssetsUsd!=null && isFinite(+x.totalNetAssetsUsd) ? +x.totalNetAssetsUsd : null, funds});
+  });
+  days.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  for(let i=0;i<days.length;i++) if(days[i].close==null) days[i].close = i ? days[i-1].close : null;   // carry the last known price
+  return {days: days.filter(x=>x.close!=null), updated: d && d.updatedThrough ? String(d.updatedThrough) : (days.length ? days[days.length-1].date : "")};
+}
+// share of the previous 120 sessions that were lower (needs at least 60)
+function etfPctile(a, i){
+  if(a[i]==null) return null;
+  let n=0, below=0;
+  for(let j=Math.max(0,i-ETF_W); j<i; j++){ if(a[j]==null) continue; n++; if(a[j]<a[i]) below++; }
+  return n>=ETF_MIN ? below/n*100 : null;
+}
+function etfRead(s5, pc5, p5){
+  if(s5==null || pc5==null) return "none";
+  if(pc5<=-5 && s5>0) return "dip_bought";
+  if(pc5>=5 && s5<0) return "rally_unbacked";
+  if(Math.abs(pc5)<2 && p5!=null && p5>=80 && s5>0) return "quiet_accum";
+  if(Math.abs(pc5)<2 && p5!=null && p5<=20 && s5<0) return "quiet_dist";
+  if(pc5<=-5 && p5!=null && p5<=20) return "selling_drop";
+  if(pc5>=5 && p5!=null && p5>=80) return "chasing";
+  return "none";
+}
+function etfCompute(days){
+  const F = days.map(x=>x.net), P = days.map(x=>x.close);
+  const S5 = F.map((_,i)=>i>=4 ? F[i-4]+F[i-3]+F[i-2]+F[i-1]+F[i] : null);
+  const PC5 = P.map((p,i)=>i>=5 && P[i-5]>0 ? (p/P[i-5]-1)*100 : null);
+  const P5 = S5.map((_,i)=>etfPctile(S5,i)), PD = F.map((_,i)=>etfPctile(F,i));
+  const R = days.map((_,i)=>etfRead(S5[i], PC5[i], P5[i]));
+  return {days, F, P, S5, PC5, P5, PD, R};
+}
+const median = a=>{ if(!a.length) return null; const s=[...a].sort((x,y)=>x-y), m=s.length>>1; return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+// separate occasions of a read: days within 5 sessions of the previous day with that read belong to the same occasion
+function etfEpisodes(M, code){
+  const out = []; let last = -99;
+  for(let i=0;i<M.R.length;i++){
+    if(code==="any"){ out.push(i); continue; }
+    if(M.R[i]!==code) continue;
+    if(i-last>ETF_GAP) out.push(i);
+    last = i;
+  }
+  return out;
+}
+function etfFwd(M, idx, k){
+  const r = idx.filter(i=>i+k<M.P.length).map(i=>(M.P[i+k]/M.P[i]-1)*100);
+  return {n:r.length, up:r.filter(x=>x>0).length, med:median(r)};
+}
+function etfTrack(M){
+  const out = {};
+  ["any", ...ETF_ORDER].forEach(code=>{ const ep = etfEpisodes(M, code); out[code] = {ep, f5:etfFwd(M, ep, 5), f10:etfFwd(M, ep, 10)}; });
+  return out;
+}
+// sessions back to an equal or bigger day in the same direction (null = none on record)
+function etfSinceBigger(F, i){
+  for(let j=i-1;j>=0;j--){ if(F[i]<0 ? F[j]<=F[i] : F[j]>=F[i]) return i-j; }
+  return null;
+}
+function etfQuantile(a, q){ const s=[...a].sort((x,y)=>x-y); if(!s.length) return null; const p=(s.length-1)*q, lo=Math.floor(p), hi=Math.ceil(p); return s[lo]+(s[hi]-s[lo])*(p-lo); }
+
+const fmtM = v=>{ if(v==null||isNaN(v)) return "—"; const a=Math.abs(v), s=v>=0?"+":"−"; return s+"$"+(a>=1000 ? (a/1000).toFixed(2)+"B" : a>=100 ? a.toFixed(0)+"M" : a>=10 ? a.toFixed(1)+"M" : a.toFixed(1)+"M"); };
+const etfDay = (k,opt)=>new Date(k+"T12:00:00Z").toLocaleDateString("en-GB", opt||{weekday:"short", day:"numeric", month:"short"});
+const toneVar = t=>({good:"--bid", bad:"--ask", warn:"--accent", up:"--price"}[t]||"--muted");
+
+let etfData = null, etfM = null, etfAt = 0, etfLoading = false, etfErr = null;
+try{ const c = JSON.parse(localStorage.getItem("wb.etf")||"null"); if(c && Array.isArray(c.days)){ etfData = {days:c.days.map(x=>({date:x[0], net:x[1], close:x[2], aum:x[3], funds:x[4]||{}})), updated:c.updated}; etfM = etfCompute(etfData.days); } }catch(e){}
+async function loadEtf(force){
+  renderEtf();
+  if(etfLoading) return;
+  if(etfData && Date.now()-etfAt < (force ? 60000 : 15*60000)) return;
+  etfLoading = true; etfErr = null;
+  try{
+    const d = etfParse(await getJSON(ETF_URL, 25000));
+    if(d.days.length < 10) throw new Error("no sessions in the file");
+    etfData = d; etfM = etfCompute(d.days); etfAt = Date.now();
+    try{ localStorage.setItem("wb.etf", JSON.stringify({updated:d.updated, days:d.days.map(x=>[x.date, +x.net.toFixed(4), x.close, x.aum, x.funds])})); }catch(e){}
+    $("stamp").textContent = "Updated "+new Date().toLocaleTimeString("en-GB");
+  }catch(e){ etfErr = e; }
+  finally{ etfLoading = false; }
+  renderEtf();
+}
+function renderEtf(){
+  if(market!=="etf") return;
+  const M = etfM;
+  if(!M || !M.days.length){
+    $("etfStamp").textContent = etfErr ? "" : "Loading the ETF flow history…";
+    $("etfRead").className = "read "+(etfErr?"bad":"neutral");
+    $("etfRead").innerHTML = etfErr ? "<b>Couldn't load ETF flows</b><p>The tracker didn't answer ("+esc(etfErr.message||"error")+"). Press Refresh to try again.</p>" : "<b>Loading…</b>";
+    ["etfStats","etfRange","etfFunds","etfRecent","etfTrack"].forEach(id=>$(id).innerHTML="");
+    drawEtfChart(); return;
+  }
+  const D = M.days, n = D.length, i = n-1, last = D[i];
+  $("etfStamp").textContent = "Latest session: "+etfDay(last.date,{weekday:"long", day:"numeric", month:"long", year:"numeric"})+" · "+n+" sessions since "+etfDay(D[0].date,{day:"numeric", month:"short", year:"numeric"})+(etfErr ? " · couldn't refresh just now, showing saved data" : "");
+  // ---- the read ----
+  const T = etfTrack(M), code = M.R[i], rd = ETF_READS[code], tr = T[code], base = T.any;
+  const pctOf = f=>f.n ? Math.round(f.up/f.n*100) : null;
+  let rec = "";
+  if(code!=="none" && tr.f10.n){
+    rec = `<p class="w">Seen ${tr.ep.length} time${tr.ep.length===1?"":"s"} since ${etfDay(D[0].date,{month:"short", year:"numeric"})}. BTC was higher 5 sessions later ${tr.f5.up} of ${tr.f5.n} times and 10 sessions later ${tr.f10.up} of ${tr.f10.n} (median ${pctS(tr.f10.med,1)}), against ${pctOf(base.f10)}% of all sessions.</p>`;
+  } else if(code!=="none"){
+    rec = `<p class="w">First time this read has shown up, so there's no track record yet.</p>`;
+  }
+  let start = i; while(start>0 && M.R[start-1]===code) start--;
+  const since = code!=="none" && start<i ? `<p class="w">This read has been showing for ${i-start+1} sessions, since ${etfDay(D[start].date)}.</p>` : "";
+  const facts = `<p class="w">Last 5 sessions: ETFs ${fmtM(M.S5[i])}, BTC ${pctS(M.PC5[i],1)}${M.P5[i]==null ? "" : M.P5[i]>=99.5 ? " · the strongest 5 sessions of the last 120" : M.P5[i]<=0.5 ? " · the weakest 5 sessions of the last 120" : " · stronger than "+Math.round(M.P5[i])+"% of the last 120"}.</p>`;
+  $("etfRead").className = "read "+rd.tone;
+  $("etfRead").innerHTML = `<b>${rd.icon} ${esc(rd.title)}</b><p>${esc(rd.meaning)}</p>${facts}${rec}${since}`;
+  // ---- headline numbers ----
+  const sb = etfSinceBigger(M.F, i);
+  const size = last.net<0 ? (sb==null ? "Biggest outflow on record" : sb>=20 ? "Biggest outflow in "+sb+" sessions" : null)
+                          : (sb==null ? "Biggest inflow on record" : sb>=20 ? "Biggest inflow in "+sb+" sessions" : null);
+  const pd = M.PD[i];
+  const band = pd==null ? "" : pd<=5 ? "In the heaviest 5% of outflow days (last 120)" : pd>=95 ? "In the strongest 5% of inflow days (last 120)" : pd<=20 ? "Heavier than usual (bottom 20%, last 120)" : pd>=80 ? "Stronger than usual (top 20%, last 120)" : "Within the normal range";
+  let streak = 1; while(i-streak>=0 && Math.sign(M.F[i-streak])===Math.sign(last.net) && last.net!==0) streak++;
+  const s20 = M.F.slice(-20).reduce((a,b)=>a+b,0), in20 = M.F.slice(-20).filter(v=>v>0).length;
+  const cum = M.F.reduce((a,b)=>a+b,0);
+  const p20 = n>20 ? (last.close/D[n-21].close-1)*100 : null;
+  const top = Object.entries(last.funds).filter(([,v])=>v).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,2).map(([k,v])=>k+" "+fmtM(v)).join(", ");
+  const stat=(label,val,sub,c)=>`<div class="stat"><small>${label}</small><b class="${c||""}">${val}</b><span>${sub}</span></div>`;
+  $("etfStats").innerHTML =
+    stat(etfDay(last.date), fmtM(last.net), (size ? size+". " : "")+band+(top?" · "+esc(top):""), cls(last.net)) +
+    stat("Last 5 sessions", fmtM(M.S5[i]), "BTC "+pctS(M.PC5[i],1)+" over the same 5", cls(M.S5[i])) +
+    stat("Last 20 sessions", fmtM(s20), in20+" of 20 sessions were inflows · BTC "+pctS(p20,1), cls(s20)) +
+    stat("Streak", streak+" day"+(streak===1?"":"s")+" "+(last.net>=0?"in":"out"), "Sessions in a row with "+(last.net>=0?"inflows":"outflows"), cls(last.net)) +
+    stat("Since launch", fmtM(cum), "Net flow since "+etfDay(D[0].date,{day:"numeric", month:"short", year:"numeric"})+(last.aum ? " · assets $"+(last.aum/1e9).toFixed(1)+"B" : ""), cls(cum));
+  // ---- how big is big ----
+  const W = M.F.slice(-ETF_W), W5 = M.S5.slice(-ETF_W).filter(v=>v!=null);
+  const q = (a,p)=>etfQuantile(a,p);
+  const iMin = M.F.indexOf(Math.min(...M.F)), iMax = M.F.indexOf(Math.max(...M.F));
+  const big = (dir)=>{   // after the 10 biggest days: did price keep going the same way within 30 sessions?
+    const idx = M.F.map((v,j)=>j).filter(j=>j+10<n).sort((a,b)=>dir<0 ? M.F[a]-M.F[b] : M.F[b]-M.F[a]).slice(0,10);
+    let more = 0; const mv = [];
+    idx.forEach(j=>{ const seg = M.P.slice(j+1, Math.min(n, j+31)); const ext = dir<0 ? Math.min(...seg) : Math.max(...seg); const m = (ext/M.P[j]-1)*100; mv.push(m); if(dir<0 ? m<=-3 : m>=3) more++; });
+    return {more, n:idx.length, med:median(mv)};
+  };
+  const bo = big(-1), bi = big(1);
+  $("etfRange").innerHTML =
+    `<p><b>Normal day</b> (last 120 sessions): between ${fmtM(q(W,.05))} and ${fmtM(q(W,.95))}, typical ${fmtM(q(W,.5))}. Outside that range is the heaviest or strongest 5%.</p>`+
+    `<p><b>Normal 5 sessions</b>: between ${fmtM(q(W5,.05))} and ${fmtM(q(W5,.95))}.</p>`+
+    `<p><b>Records</b>: biggest outflow ${fmtM(M.F[iMin])} on ${etfDay(D[iMin].date,{day:"numeric", month:"short", year:"numeric"})}, biggest inflow ${fmtM(M.F[iMax])} on ${etfDay(D[iMax].date,{day:"numeric", month:"short", year:"numeric"})}.</p>`+
+    `<p><b>Is there a level that marks the turn?</b> Not on its own. After the 10 biggest outflow days, BTC fell at least another 3% within 30 sessions ${bo.more} of ${bo.n} times (median low ${pctS(bo.med,1)}). After the 10 biggest inflow days, it rose at least another 3% ${bi.more} of ${bi.n} times (median high ${pctS(bi.med,1)}). Flows mostly follow price, so the size of a day alone doesn't tell you the move is over. The reads above, where flows and price disagree, have the better record.</p>`;
+  // ---- track record ----
+  const cell = f=>f.n ? `${Math.round(f.up/f.n*100)}%<small style="display:block;opacity:.8">${f.up}/${f.n}</small>` : "—";
+  $("etfTrack").innerHTML = `<table><thead><tr><th>Read</th><th class="r">Times</th><th class="r">Up 5</th><th class="r">Up 10</th><th class="r">Med 10</th></tr></thead><tbody>`+
+    ["any", ...ETF_ORDER.filter(c=>c!=="none")].map(c=>{
+      const t = T[c], r = c==="any" ? {title:"Any session", tone:"neutral", icon:"·"} : ETF_READS[c];
+      return `<tr><td class="w"><span class="t-${r.tone}">${r.icon} ${esc(r.title)}</span>${c===code?' <span class="t-neutral">← now</span>':""}</td><td class="r">${t.ep.length}</td><td class="r">${cell(t.f5)}</td><td class="r">${cell(t.f10)}</td><td class="r ${cls(t.f10.med)}">${pctS(t.f10.med,1)}</td></tr>`;
+    }).join("")+`</tbody></table>`;
+  // ---- by fund ----
+  const keys = new Set(); D.slice(-20).forEach(x=>Object.keys(x.funds).forEach(k=>keys.add(k)));
+  const sumK = (k,m)=>D.slice(-m).reduce((a,x)=>a+(x.funds[k]||0),0);
+  const fr = [...keys].map(k=>({k, d:last.funds[k]||0, s5:sumK(k,5), s20:sumK(k,20)})).filter(r=>r.s20 || r.d).sort((a,b)=>Math.abs(b.s20)-Math.abs(a.s20));
+  $("etfFunds").innerHTML = fr.length ? `<table><thead><tr><th>Fund</th><th class="r">${etfDay(last.date,{day:"numeric", month:"short"})}</th><th class="r">5 sess</th><th class="r">20 sess</th></tr></thead><tbody>`+
+    fr.map(r=>`<tr><td>${esc(r.k)}${ETF_NAMES[r.k]?`<small style="display:block" class="t-neutral">${esc(ETF_NAMES[r.k])}</small>`:""}</td><td class="r ${r.d?cls(r.d):""}">${r.d?fmtM(r.d):"0"}</td><td class="r ${cls(r.s5)}">${fmtM(r.s5)}</td><td class="r ${cls(r.s20)}">${fmtM(r.s20)}</td></tr>`).join("")+`</tbody></table>`
+    : `<div class="empty">No per-fund figures in the latest sessions.</div>`;
+  // ---- recent sessions ----
+  const rows = []; for(let j=n-1; j>=Math.max(0,n-15); j--){
+    const r = ETF_READS[M.R[j]];
+    rows.push(`<tr class="h1"><td>${etfDay(D[j].date)}</td><td class="r ${cls(M.F[j])}">${fmtM(M.F[j])}</td><td class="r">$${fmtP(D[j].close)}</td><td class="r ${cls(M.S5[j])}">${fmtM(M.S5[j])}</td></tr>`+
+      `<tr class="h2"><td colspan="4"><span class="t-${r.tone}">${r.icon} ${esc(r.title)}</span> <span class="t-neutral">· BTC ${pctS(M.PC5[j],1)} over 5</span></td></tr>`);
+  }
+  $("etfRecent").innerHTML = `<table><thead><tr><th>Session</th><th class="r">Net flow</th><th class="r">BTC</th><th class="r">Last 5</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  drawEtfChart();
+}
+function drawEtfChart(){
+  const cv = $("etfChart"); if(!cv) return;
+  const w = cv.clientWidth || 600, h = 270, dpr = window.devicePixelRatio||1;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); cv.style.height = h+"px";
+  const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,w,h);
+  const M = etfM; if(!M || M.days.length<2) return;
+  const css = getComputedStyle(document.documentElement), tok = k=>css.getPropertyValue(k).trim();
+  const cPrice=tok("--price"), cMut=tok("--muted"), cLine=tok("--line"), cBid=tok("--bid"), cAsk=tok("--ask");
+  const n = M.days.length, s0 = Math.max(0, n-60), cnt = n-s0;
+  const D = M.days.slice(s0), F = M.F.slice(s0), P = M.P.slice(s0), R = M.R.slice(s0);
+  g.font = "11px "+tok("--mono"); g.textBaseline = "middle";
+  const padL=58, padR=10, top=8, priceH=100, dotH=14, barH=110, axisH=18;
+  const W = Math.max(40, w-padL-padR), colW = W/cnt, X = j=>padL+(j+0.5)*colW;
+  const pMin = Math.min(...P), pMax = Math.max(...P), pr = (pMax-pMin)||pMax*0.01;
+  const YP = v=>top+priceH-(v-pMin)/pr*priceH;
+  [pMax,(pMax+pMin)/2,pMin].forEach(v=>{ const y=YP(v); g.strokeStyle=cLine; g.globalAlpha=.6; g.beginPath(); g.moveTo(padL,Math.round(y)+.5); g.lineTo(padL+W,Math.round(y)+.5); g.stroke(); g.globalAlpha=1; g.fillStyle=cPrice; g.textAlign="right"; g.fillText(fmtP(+v.toPrecision(4)), padL-6, y); });
+  g.strokeStyle=cPrice; g.lineWidth=2; g.beginPath(); P.forEach((v,j)=>{ const x=X(j), y=YP(v); j?g.lineTo(x,y):g.moveTo(x,y); }); g.stroke(); g.lineWidth=1;
+  // where each read started
+  const dotY = top+priceH+dotH/2+2;
+  R.forEach((c,j)=>{ if(c==="none") return; const gi=s0+j; if(gi>0 && M.R[gi-1]===c) return; g.fillStyle=tok(toneVar(ETF_READS[c].tone)); g.beginPath(); g.arc(X(j), dotY, 3.5, 0, Math.PI*2); g.fill(); });
+  // bars with the normal range
+  const W120 = M.F.slice(-ETF_W), lo = etfQuantile(W120,.05), hi = etfQuantile(W120,.95);
+  const bTop = top+priceH+dotH+6, zero = bTop+barH/2;
+  const mx = Math.max(1, ...F.map(Math.abs), Math.abs(lo), Math.abs(hi));
+  const YB = v=>zero - v/mx*(barH/2-2);
+  g.strokeStyle=cLine; g.beginPath(); g.moveTo(padL,zero+.5); g.lineTo(padL+W,zero+.5); g.stroke();
+  const bw = Math.max(1.5, colW*0.7);
+  F.forEach((v,j)=>{ const y=YB(v); g.fillStyle = v>=0?cBid:cAsk; g.fillRect(X(j)-bw/2, Math.min(y,zero), bw, Math.max(1,Math.abs(zero-y))); });
+  g.setLineDash([4,4]); g.strokeStyle=cMut;
+  [lo,hi].forEach(v=>{ const y=Math.round(YB(v))+.5; g.beginPath(); g.moveTo(padL,y); g.lineTo(padL+W,y); g.stroke(); });
+  g.setLineDash([]);
+  g.fillStyle=cMut; g.textAlign="right";
+  g.fillText(fmtM(mx).replace(".00B","B"), padL-6, bTop+6); g.fillText(fmtM(-mx).replace(".00B","B"), padL-6, bTop+barH-6);
+  // dates, skipping any that would overlap
+  g.textAlign="center"; g.textBaseline="alphabetic";
+  let lastR = -Infinity;
+  const step = Math.max(1, Math.ceil(70/colW));
+  for(let j=cnt-1; j>=0; j-=step){
+    const t = etfDay(D[j].date,{day:"numeric", month:"short"}), tw = g.measureText(t).width, x = Math.min(Math.max(X(j), padL+tw/2), padL+W-tw/2);
+    if(lastR!==-Infinity && x+tw/2 > lastR-6) continue;
+    g.fillText(t, x, bTop+barH+axisH-4); lastR = x-tw/2;
+  }
+}
+function etfCsv(){
+  const M = etfM, D = M.days;
+  const keys = [...new Set(D.flatMap(x=>Object.keys(x.funds)))].sort();
+  const f = (v,d)=> v==null||isNaN(v) ? "" : (+v).toFixed(d);
+  const head = ["date","net_flow_usd_m","btc_close_usd","five_session_net_usd_m","five_session_btc_change_pct","five_session_rank_pct_of_last_120","read", ...keys.map(k=>k.toLowerCase()+"_usd_m")];
+  const lines = D.map((x,i)=>[x.date, f(x.net,2), f(x.close,0), f(M.S5[i],2), f(M.PC5[i],2), f(M.P5[i],0), '"'+ETF_READS[M.R[i]].title+'"', ...keys.map(k=>f(x.funds[k],2))].join(","));
+  return head.join(",")+"\n"+lines.join("\n")+"\n"+'"Source: The Commoner Bitcoin ETF Tracker by TFTC (https://www.tftc.io/bitcoin-etf-flows), CC BY 4.0"\n';
+}
+$("etfDl").addEventListener("click",()=>{ if(!etfM){ $("etfDlMsg").textContent="Nothing loaded yet."; return; } $("etfDlMsg").textContent = saveText("BTC-ETF-flows-"+etfData.updated+".csv", etfCsv()); });
 
 function renderToday(){
   const box = $("today"), U = coin;
@@ -1334,12 +1664,19 @@ function drawChart(){
   if(cLo<0 && cHi>0){ g.strokeStyle=cAcc; g.globalAlpha=.35; g.setLineDash([3,3]); g.beginPath(); g.moveTo(padL,YC(0)); g.lineTo(padL+W,YC(0)); g.stroke(); g.setLineDash([]); g.globalAlpha=1; }
   // hour gridlines + labels
   const hourPx = W/((t1-t0)/3600000);
-  const every = [1,2,3,4,6].find(s=>s*hourPx>=40) || 6;
-  g.textBaseline="alphabetic"; g.textAlign="center";
+  // label spacing from the real text width; a label that would touch its neighbour is skipped
+  const lw = g.measureText("00:00").width;
+  const every = [1,2,3,4,6,8,12].find(s=>s*hourPx >= lw+12) || 12;
+  g.textBaseline="alphabetic"; g.textAlign="left";
+  let lastRight = -Infinity;
   for(let hr=0; t0+hr*3600000<=t1; hr++){
     const x = Math.round(X(t0+hr*3600000))+.5;
     g.strokeStyle=cLine; g.globalAlpha=.45; g.beginPath(); g.moveTo(x,mainTop); g.lineTo(x,barBot); g.stroke(); g.globalAlpha=1;
-    if(hr%every===0){ g.fillStyle=cMut; g.fillText((String(new Date(t0+hr*3600000).getHours())).padStart(2,"0")+":00", Math.min(Math.max(x,padL+16),padL+W-16), barBot+axisH-4); }
+    if(hr%every===0){
+      const txt = (String(new Date(t0+hr*3600000).getHours())).padStart(2,"0")+":00";
+      const x0 = Math.min(Math.max(x - lw/2, 2), w - lw - 2);   // edge labels may use the margins, which are empty on this row
+      if(x0 >= lastRight + 8){ g.fillStyle=cMut; g.fillText(txt, x0, barBot+axisH-4); lastRight = x0 + lw; }
+    }
   }
   // price line
   g.lineJoin="round";
@@ -1392,11 +1729,11 @@ function syncNative(){
   if(!NATIVE) return;
   const coins = {};
   ["BTC","ETH","SOL"].forEach(c=>{ const p=per(c); coins[c]={on:!!p.on, whale:+p.whale, execSpot:+p.execSpot, execPerp:+p.execPerp, netSpot:+p.netSpot, netPerp:+p.netPerp}; });
-  try{ Android.setSettings(JSON.stringify({ coins, spotOn: store.spotOn!==false, perpOn: store.perpOn!==false, sigOn: store.sigOn!==false, wallsOn: store.wallsOn!==false, wallsGrouped: store.wallsGrouped===true, wallMin: +store.wallMin||5, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
+  try{ Android.setSettings(JSON.stringify({ coins, spotOn: store.spotOn!==false, perpOn: store.perpOn!==false, sigOn: store.sigOn!==false, etfOn: store.etfOn!==false, wallsOn: store.wallsOn!==false, wallsGrouped: store.wallsGrouped===true, wallMin: +store.wallMin||5, range:+$("range").value||2, accel:+$("accel").value||3, interval:+$("interval").value||60 })); }catch(e){}
 }
 function renderWatchMarkets(){
   const w = $("watchMk"); w.innerHTML = "<span>Markets:</span>";
-  [["spotOn","Spot"],["perpOn","Perps"],["sigOn","Spot vs perp signals"]].forEach(([k,label])=>{
+  [["spotOn","Spot"],["perpOn","Perps"],["sigOn","Spot vs perp signals"],["etfOn","BTC ETF daily flows"]].forEach(([k,label])=>{
     const lab=document.createElement("label"), cb=document.createElement("input");
     cb.type="checkbox"; cb.id="w_"+k; cb.checked = store[k]!==false;
     cb.addEventListener("change",()=>{ store[k]=cb.checked; save(); syncNative(); renderAlerts(); });
@@ -1431,7 +1768,8 @@ function renderAlerts(){
   $("alertToggle").textContent = on ? "Alerts on · tap to stop" : "Turn alerts on";
   $("alertToggle").classList.toggle("on", on);
   const mk = [store.spotOn!==false?"spot":"", store.perpOn!==false?"perps":"", store.sigOn!==false?"signals":""].filter(Boolean).join(" + ");
-  $("alertState").textContent = on ? (!watching.length ? "On, but no coins ticked below" : !mk ? "On, but nothing is ticked under Markets" : "Watching "+watching.join(", ")+" "+mk+" every "+$("interval").value+"s, even with the screen locked") : "Off";
+  const etf = store.etfOn!==false ? " · BTC ETF flows once a day" : "";
+  $("alertState").textContent = on ? ((!watching.length ? "On, but no coins ticked below" : !mk ? "On, but nothing is ticked under Markets" : "Watching "+watching.join(", ")+" "+mk+" every "+$("interval").value+"s, even with the screen locked") + etf) : "Off";
   let list=[]; try{ list = JSON.parse(Android.getAlerts()||"[]"); }catch(e){}
   $("alertList").innerHTML = list.length ? list.map(a=>`<div class="alert ${esc(a.kind||"")}"><b>${esc(a.title)}</b><span>${new Date(a.t).toLocaleTimeString("en-GB")} · ${esc(a.text)}</span></div>`).join("")
     : `<div class="empty">No alerts yet.</div>`;
@@ -1462,9 +1800,10 @@ let timer=null;
 function setAuto(){ if(timer) clearInterval(timer); const s=+$("auto").value; if(s>0) timer=setInterval(refresh, s*1000); }
 $("refresh").addEventListener("click", refresh);
 $("auto").addEventListener("change", ()=>{ store.auto=+$("auto").value; save(); setAuto(); });
-let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ drawChart(); if(market==="history") drawHistChart(); },150); });
+let rz=null; window.addEventListener("resize",()=>{ clearTimeout(rz); rz=setTimeout(()=>{ drawChart(); if(market==="history") drawHistChart(); if(market==="etf") drawEtfChart(); },150); });
 
 document.body.classList.toggle("hist", market==="history");
+document.body.classList.toggle("etf", market==="etf");
 setTimeout(()=>captureMissingDays(), 8000);
 renderCoins(); renderMarkets(); renderDivWin(); fillControls(); render(); renderAlerts(); setAuto(); refresh();
 })();
